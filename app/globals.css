@@ -2,6 +2,7 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import './design-system/styles.css';
+@import './studio.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -54,6 +55,21 @@
 
 body {
   overflow: hidden;
+}
+
+/* Stage content has its own high-contrast palette, independent of editor chrome. */
+.slide-surface[data-tone='paper'],
+.slide-surface[data-tone='mist'] {
+  --foreground: #171717;
+  --muted-foreground: #484848;
+  color: #171717;
+  background: #ffffff;
+}
+.slide-surface[data-tone='ink'] {
+  --foreground: #ffffff;
+  --muted-foreground: #dddddd;
+  color: #ffffff;
+  background: #171717;
 }
 
 button,

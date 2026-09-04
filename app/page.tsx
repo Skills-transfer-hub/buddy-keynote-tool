@@ -1,856 +1,1085 @@
 'use client';
 
 import {
-  type ChangeEvent,
-  type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
+  type ChangeEvent,
+  type ReactNode,
 } from 'react';
 import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignStartHorizontal,
+  AlignStartVertical,
   ArrowDown,
-  ArrowLeft,
-  ArrowRight,
   ArrowUp,
+  ArrowRight,
+  Braces,
+  ChartNoAxesColumn,
   Copy,
   Download,
-  Expand,
+  Eye,
+  EyeOff,
   FileUp,
-  HelpCircle,
-  Maximize2,
-  Pause,
+  FolderOpen,
+  Grid3X3,
+  Group,
+  ImagePlus,
+  Layers,
+  Lock,
+  Monitor,
+  MousePointer2,
   Play,
   Plus,
   Redo2,
+  Shapes,
   Sparkles,
+  StickyNote,
+  Table2,
   Trash2,
+  Type,
   Undo2,
-  X,
+  Ungroup,
+  Unlock,
+  Video,
+  ZoomIn,
+  ZoomOut,
+  Printer,
 } from 'lucide-react';
-
-import { Buddy, BuddyLogo, type BuddyState } from '@/components/buddy';
+import { Buddy, BuddyLogo } from '@/components/buddy';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { StudioSlide } from '@/components/studio-slide';
+import {
+  StudioInspector,
+  Choice,
+  NumberField,
+  ToggleField,
+} from '@/components/studio-inspector';
+import { StudioPlayer, type PlaybackState } from '@/components/studio-player';
+import { PresenterConsole } from '@/components/presenter-console';
+import { StudioWebMcp } from '@/components/studio-webmcp';
+import {
+  initialDeck,
+  makeElement,
+  makeSlide,
+  createId,
+  migrateDeck,
+  elementLabels,
+  animationLabels,
+  animationTriggerLabels,
+  transitionLabels,
+  themeLabels,
+  aspectRatioLabels,
+  type Deck,
+  type Slide,
+  type SlideElement,
+  type SlideElementKind,
+  type DeckTheme,
+} from '@/lib/studio';
+import { animationGroups, nextVisibleIndex } from '@/lib/playback';
+import {
+  listLocalDecks,
+  restoreLocalDeck,
+  saveLocalDeck,
+} from '@/lib/local-decks';
 
-type Transition = 'cut' | 'push' | 'wipe' | 'lift';
-type TextAnimation = 'instant' | 'type' | 'reveal' | 'steps';
-type SlideTone = 'paper' | 'ink' | 'mist';
-type SlideLayout = 'headline' | 'statement' | 'split';
-
-type Slide = {
-  id: string;
-  eyebrow: string;
-  title: string;
-  body: string;
-  transition: Transition;
-  textAnimation: TextAnimation;
-  tone: SlideTone;
-  layout: SlideLayout;
-  notes: string;
-};
-
-type Deck = {
-  schemaVersion: 1;
-  id: string;
-  title: string;
-  slides: Slide[];
-  updatedAt: string;
-};
-
-type EditorSnapshot = {
-  deck: Deck;
-  activeId: string;
-};
-
-type PresentationState = {
-  index: number;
-  previousIndex: number | null;
-  direction: -1 | 1;
-  buildStep: number;
-  buildRun: number;
-  preview: boolean;
-  run: number;
-};
-
-type WebMcpTool = {
-  name: string;
-  title: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean };
-  execute: (input: unknown) => unknown;
-};
-
-declare global {
-  interface Document {
-    modelContext?: {
-      registerTool: (
-        tool: WebMcpTool,
-        options?: { signal?: AbortSignal },
-      ) => void | Promise<void>;
-    };
-  }
-}
-
-const STORAGE_KEY = 'sth-buddy-keynote-v1';
-
-const initialDeck: Deck = {
-  schemaVersion: 1,
-  id: 'sth-keynote-demo',
-  title: 'Le savoir en mouvement',
-  updatedAt: '2026-09-04T00:00:00.000Z',
-  slides: [
-    {
-      id: 'opening',
-      eyebrow: 'STH KEYNOTE · 2026',
-      title: 'Le savoir circule.\nLes équipes avancent.',
-      body: 'Une seule source de vérité pour transmettre les pratiques qui font gagner du temps.',
-      transition: 'push',
-      textAnimation: 'reveal',
-      tone: 'paper',
-      layout: 'headline',
-      notes: 'Marquer une pause après la première phrase. Puis introduire Buddy.',
-    },
-    {
-      id: 'problem',
-      eyebrow: 'LE CONSTAT',
-      title: 'Le contexte se perd\nentre les outils.',
-      body: 'Les décisions, les méthodes et les automatismes restent dispersés. STH les rend transmissibles.',
-      transition: 'wipe',
-      textAnimation: 'steps',
-      tone: 'mist',
-      layout: 'statement',
-      notes: 'Donner un exemple concret vécu par une équipe produit.',
-    },
-    {
-      id: 'buddy',
-      eyebrow: 'BUDDY ENTRE EN SCÈNE',
-      title: 'Chaque mouvement\na une intention.',
-      body: 'Buddy orchestre les transitions et révèle le texte au rythme de votre discours.',
-      transition: 'lift',
-      textAnimation: 'type',
-      tone: 'ink',
-      layout: 'split',
-      notes: 'Laisser Buddy terminer son mouvement avant de reprendre.',
-    },
-  ],
-};
-
-const transitionLabels: Record<Transition, string> = {
-  cut: 'Buddy coupe',
-  push: 'Buddy pousse',
-  wipe: 'Buddy balaie',
-  lift: 'Buddy soulève',
-};
-
-const transitionDescriptions: Record<Transition, string> = {
-  cut: 'Un clin d’œil, puis la scène change.',
-  push: 'Buddy pousse la nouvelle scène depuis la droite.',
-  wipe: 'Buddy traverse l’écran et révèle la scène.',
-  lift: 'Buddy soulève la scène depuis le bas.',
-};
-
-const animationLabels: Record<TextAnimation, string> = {
-  instant: 'Instantané',
-  type: 'Buddy écrit',
-  reveal: 'Buddy dévoile',
-  steps: 'Buddy déroule',
-};
-
-const layoutLabels: Record<SlideLayout, string> = {
-  headline: 'Titre',
-  statement: 'Déclaration',
-  split: 'Duo avec Buddy',
-};
-
-const toneLabels: Record<SlideTone, string> = {
-  paper: 'Papier',
-  mist: 'Brume',
-  ink: 'Encre',
-};
-
-function createId(prefix: string) {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return `${prefix}-${crypto.randomUUID()}`;
-  }
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function isTextInputTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  return (
-    target.isContentEditable ||
-    target.tagName === 'INPUT' ||
-    target.tagName === 'TEXTAREA' ||
-    target.tagName === 'SELECT'
+type Snapshot = { deck: Deck; activeId: string; selected: string[] };
+type AudienceMessage =
+  | { type: 'snapshot'; deck: Deck; playback: PlaybackState | null }
+  | { type: 'busy'; busy: boolean; run: number }
+  | { type: 'ready' | 'next' | 'previous' | 'close' | 'blackout' | 'laser' };
+const isInput = (target: EventTarget | null) =>
+  target instanceof HTMLElement &&
+  Boolean(
+    target.closest(
+      'input,textarea,select,[contenteditable=true],[role=dialog]',
+    ),
   );
+const copy = <T,>(value: T): T => structuredClone(value);
+const fileName = (title: string) =>
+  title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase() || 'buddy-keynote';
+
+function download(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = name;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-
-function sceneDuration(slide: Slide) {
-  if (slide.textAnimation === 'type') {
-    const titleDuration = Math.min(900, slide.title.length * 18);
-    const bodyDuration = Math.min(900, slide.body.length * 12);
-    return 620 + titleDuration + 120 + bodyDuration + 100;
-  }
-  if (slide.textAnimation === 'steps') return 1260;
-  if (slide.textAnimation === 'reveal') return 1480;
-  return 820;
-}
-
-function isValidDeck(value: unknown): value is Deck {
-  if (!value || typeof value !== 'object') return false;
-  const deck = value as Record<string, unknown>;
-  if (
-    deck.schemaVersion !== 1 ||
-    typeof deck.id !== 'string' ||
-    typeof deck.title !== 'string' ||
-    typeof deck.updatedAt !== 'string' ||
-    !Array.isArray(deck.slides) ||
-    deck.slides.length === 0
-  ) {
-    return false;
-  }
-
-  const ids = new Set<string>();
-  return deck.slides.every((candidate: unknown) => {
-    if (!candidate || typeof candidate !== 'object') return false;
-    const slide = candidate as Record<string, unknown>;
-    if (typeof slide.id !== 'string' || ids.has(slide.id)) return false;
-    ids.add(slide.id);
-    return (
-      typeof slide.title === 'string' &&
-      slide.title.length <= 120 &&
-      typeof slide.body === 'string' &&
-      slide.body.length <= 320 &&
-      typeof slide.eyebrow === 'string' &&
-      slide.eyebrow.length <= 48 &&
-      typeof slide.notes === 'string' &&
-      slide.notes.length <= 2000 &&
-      typeof slide.transition === 'string' &&
-      Object.hasOwn(transitionLabels, slide.transition) &&
-      typeof slide.textAnimation === 'string' &&
-      Object.hasOwn(animationLabels, slide.textAnimation) &&
-      typeof slide.tone === 'string' &&
-      Object.hasOwn(toneLabels, slide.tone) &&
-      typeof slide.layout === 'string' &&
-      Object.hasOwn(layoutLabels, slide.layout)
-    );
-  });
-}
-
-function makeSlide(title?: string, body?: string): Slide {
-  return {
-    id: createId('slide'),
-    eyebrow: 'NOUVELLE IDÉE',
-    title: title?.trim() || 'Donnez du relief\nà votre message.',
-    body: body?.trim() || 'Écrivez ici le point que votre audience doit retenir.',
-    transition: 'push',
-    textAnimation: 'reveal',
-    tone: 'paper',
-    layout: 'headline',
-    notes: '',
-  };
-}
-
-function TypedText({
-  as,
-  text,
-  className,
-  startAt,
-  maxDuration,
+function IconAction({
+  title,
+  children,
+  onClick,
+  disabled = false,
 }: {
-  as: 'p' | 'h2';
-  text: string;
-  className: string;
-  startAt: number;
-  maxDuration: number;
-}) {
-  const Tag = as;
-  const characters = Array.from(text);
-  const delayPerCharacter = Math.min(
-    as === 'h2' ? 18 : 12,
-    maxDuration / Math.max(1, characters.length),
-  );
-
-  return (
-    <Tag className={`${className} typed-sequence`} aria-label={text.replaceAll('\n', ' ')}>
-      <span aria-hidden="true">
-        {characters.map((character, index) =>
-          character === '\n' ? (
-            <br key={`break-${index}`} />
-          ) : (
-            <span
-              className="typed-character"
-              key={`${character}-${index}`}
-              style={
-                {
-                  '--character-delay': `${startAt + index * delayPerCharacter}ms`,
-                } as CSSProperties
-              }
-            >
-              {character}
-            </span>
-          ),
-        )}
-      </span>
-    </Tag>
-  );
-}
-
-function SlideSurface({
-  slide,
-  editable = false,
-  presenting = false,
-  showBuddy = true,
-  buildStep = 1,
-  onChange,
-  onBeginEdit,
-  onEndEdit,
-}: {
-  slide: Slide;
-  editable?: boolean;
-  presenting?: boolean;
-  showBuddy?: boolean;
-  buildStep?: number;
-  onChange?: (patch: Partial<Slide>) => void;
-  onBeginEdit?: () => void;
-  onEndEdit?: () => void;
+  title: string;
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <article
-      className={`slide-surface${presenting ? ' presentation-slide' : ''}`}
-      data-tone={slide.tone}
-      data-layout={slide.layout}
-      data-text-animation={presenting ? slide.textAnimation : undefined}
-      data-build-step={presenting ? buildStep : undefined}
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      disabled={disabled}
     >
-      <div className="slide-grid" aria-hidden="true" />
-      <div className="slide-copy">
-        {editable ? (
-          <input
-            className="slide-eyebrow-input"
-            value={slide.eyebrow}
-            onFocus={onBeginEdit}
-            onBlur={onEndEdit}
-            onChange={(event) => onChange?.({ eyebrow: event.target.value })}
-            aria-label="Surtitre de la diapositive"
-            maxLength={48}
-          />
-        ) : presenting && slide.textAnimation === 'type' ? (
-          <TypedText
-            as="p"
-            className="slide-eyebrow"
-            text={slide.eyebrow}
-            startAt={500}
-            maxDuration={160}
-          />
-        ) : (
-          <p className="slide-eyebrow">{slide.eyebrow}</p>
-        )}
-        {editable ? (
-          <textarea
-            className="slide-title-input"
-            value={slide.title}
-            onFocus={onBeginEdit}
-            onBlur={onEndEdit}
-            onChange={(event) => onChange?.({ title: event.target.value })}
-            aria-label="Titre de la diapositive"
-            rows={3}
-            maxLength={120}
-          />
-        ) : presenting && slide.textAnimation === 'type' ? (
-          <TypedText
-            as="h2"
-            className="slide-title"
-            text={slide.title}
-            startAt={620}
-            maxDuration={900}
-          />
-        ) : (
-          <h2 className="slide-title">{slide.title}</h2>
-        )}
-        {editable ? (
-          <textarea
-            className="slide-body-input"
-            value={slide.body}
-            onFocus={onBeginEdit}
-            onBlur={onEndEdit}
-            onChange={(event) => onChange?.({ body: event.target.value })}
-            aria-label="Texte de la diapositive"
-            rows={3}
-            maxLength={320}
-          />
-        ) : presenting && slide.textAnimation === 'type' ? (
-          <TypedText
-            as="p"
-            className="slide-body"
-            text={slide.body}
-            startAt={620 + Math.min(900, slide.title.length * 18) + 120}
-            maxDuration={900}
-          />
-        ) : (
-          <p className="slide-body">{slide.body}</p>
-        )}
-      </div>
-      {showBuddy ? (
-        <div className="slide-buddy-zone" aria-hidden="true">
-          <Buddy state="done" className="slide-buddy" />
-          {slide.layout === 'split' ? (
-            <span className="buddy-prompt">$ buddy stage --ready</span>
-          ) : null}
-        </div>
-      ) : null}
-      <span className="slide-brand">Skills Transfer Hub.</span>
-    </article>
+      {children}
+    </Button>
   );
 }
 
 export default function Home() {
   const [deck, setDeck] = useState<Deck>(initialDeck);
   const [activeId, setActiveId] = useState(initialDeck.slides[0].id);
-  const [presentation, setPresentation] = useState<PresentationState | null>(null);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [blackout, setBlackout] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
-  const [saveState, setSaveState] = useState<
-    'loading' | 'saving' | 'saved' | 'error'
-  >('loading');
-  const [statusMessage, setStatusMessage] = useState('Présentation prête.');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [inspector, setInspector] = useState('format');
+  const [grid, setGrid] = useState(false);
+  const [snap, setSnap] = useState(true);
+  const [zoom, setZoom] = useState(100);
+  const [sorter, setSorter] = useState(false);
+  const [status, setStatus] = useState('Prêt.');
+  const [saveState, setSaveState] = useState('Chargement…');
   const [hydrated, setHydrated] = useState(false);
-  const [historyState, setHistoryState] = useState({
-    canUndo: false,
-    canRedo: false,
-  });
-  const undoStack = useRef<EditorSnapshot[]>([]);
-  const redoStack = useRef<EditorSnapshot[]>([]);
-  const editCheckpoint = useRef<EditorSnapshot | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [history, setHistory] = useState({ undo: 0, redo: 0 });
+  const [library, setLibrary] = useState<Deck[] | null>(null);
+  const [playback, setPlayback] = useState<PlaybackState | null>(null);
+  const [playbackBusy, setPlaybackBusy] = useState(false);
+  const [presenter, setPresenter] = useState(false);
+  const [audience, setAudience] = useState(false);
+  const [audienceReady, setAudienceReady] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [printing, setPrinting] = useState(false);
   const deckRef = useRef(deck);
-  const importInputRef = useRef<HTMLInputElement>(null);
-  const presentationRef = useRef<HTMLElement>(null);
-  const presentButtonRef = useRef<HTMLButtonElement>(null);
-
+  const activeRef = useRef(activeId);
+  const selectedRef = useRef(selected);
+  const undoRef = useRef<Snapshot[]>([]);
+  const redoRef = useRef<Snapshot[]>([]);
+  const transaction = useRef<{ snapshot: Snapshot; recorded: boolean } | null>(
+    null,
+  );
+  const dragSnapshot = useRef<SlideElement[]>([]);
+  const clipboard = useRef<SlideElement[]>([]);
+  const importInput = useRef<HTMLInputElement>(null);
+  const imageInput = useRef<HTMLInputElement>(null);
+  const replaceImage = useRef<string | null>(null);
+  const channel = useRef<BroadcastChannel | null>(null);
+  const audienceWindow = useRef<Window | null>(null);
+  const playbackRef = useRef(playback);
+  const busyRef = useRef(false);
+  const commands = useRef({
+    next: () => {},
+    previous: () => {},
+    close: () => {},
+    blackout: () => {},
+    laser: () => {},
+  });
+  const presentButton = useRef<HTMLButtonElement>(null);
+  const presentationStartedAt = useRef(0);
   const activeIndex = Math.max(
     0,
-    deck.slides.findIndex((slide) => slide.id === activeId),
+    deck.slides.findIndex((s) => s.id === activeId),
   );
-  const activeSlide = deck.slides[activeIndex] ?? deck.slides[0];
-  const presentedSlide = presentation ? deck.slides[presentation.index] : null;
-  const outgoingSlide =
-    presentation?.previousIndex === null || presentation?.previousIndex === undefined
-      ? null
-      : deck.slides[presentation.previousIndex];
-  const transitionLabel = useMemo(
-    () => transitionLabels[activeSlide.transition],
-    [activeSlide.transition],
-  );
+  const slide = deck.slides[activeIndex];
+  const element = slide.elements.find((e) => e.id === selected.at(-1));
 
-  const setDeckDirect = useCallback((updater: (current: Deck) => Deck) => {
-    setDeck((current) => {
-      const next = updater(current);
-      deckRef.current = next;
-      return next;
-    });
-  }, []);
-
-  const commit = useCallback(
-    (updater: (current: Deck) => Deck) => {
-      setDeckDirect((current) => {
-        editCheckpoint.current = null;
-        undoStack.current = [
-          ...undoStack.current.slice(-39),
-          { deck: current, activeId },
-        ];
-        redoStack.current = [];
-        return {
-          ...updater(current),
-          updatedAt: new Date().toISOString(),
-        };
-      });
-      setHistoryState({ canUndo: true, canRedo: false });
-    },
-    [activeId, setDeckDirect],
-  );
-
-  const checkpoint = useCallback(() => {
-    editCheckpoint.current = { deck: deckRef.current, activeId };
-  }, [activeId]);
-
-  const finishCheckpoint = useCallback(() => {
-    editCheckpoint.current = null;
-  }, []);
-
-  const consumeCheckpoint = useCallback(() => {
-    const snapshot = editCheckpoint.current;
-    if (!snapshot) return;
-    editCheckpoint.current = null;
-    undoStack.current = [...undoStack.current.slice(-39), snapshot];
-    redoStack.current = [];
-    setHistoryState({ canUndo: true, canRedo: false });
-  }, []);
-
-  const updateSlide = useCallback(
-    (slideId: string, patch: Partial<Slide>, record = true) => {
-      const updater = (current: Deck) => ({
-        ...current,
-        slides: current.slides.map((slide) =>
-          slide.id === slideId ? { ...slide, ...patch } : slide,
-        ),
-        updatedAt: new Date().toISOString(),
-      });
-      if (record) commit(updater);
-      else {
-        consumeCheckpoint();
-        setDeckDirect(updater);
-      }
-    },
-    [commit, consumeCheckpoint, setDeckDirect],
-  );
-
-  const addSlideFromContent = useCallback(
-    (title?: string, body?: string) => {
-      const slide = makeSlide(title, body);
-      commit((current) => {
-        const currentIndex = current.slides.findIndex(
-          (item) => item.id === activeId,
-        );
-        const insertAt = currentIndex < 0 ? current.slides.length : currentIndex + 1;
-        const slides = [...current.slides];
-        slides.splice(insertAt, 0, slide);
-        return { ...current, slides };
-      });
-      setActiveId(slide.id);
-      setStatusMessage('Nouvelle diapositive créée.');
-      return slide;
-    },
-    [activeId, commit],
-  );
-
-  const duplicateActive = useCallback(() => {
-    const source = deckRef.current.slides.find((slide) => slide.id === activeId);
-    if (!source) return;
-    const duplicate = { ...source, id: createId('slide') };
-    commit((current) => {
-      const index = current.slides.findIndex((slide) => slide.id === activeId);
-      const slides = [...current.slides];
-      slides.splice(index + 1, 0, duplicate);
-      return { ...current, slides };
-    });
-    setActiveId(duplicate.id);
-    setStatusMessage('Diapositive dupliquée.');
-  }, [activeId, commit]);
-
-  const deleteActive = useCallback(() => {
+  function snapshot(): Snapshot {
+    return {
+      deck: deckRef.current,
+      activeId: activeRef.current,
+      selected: selectedRef.current,
+    };
+  }
+  function select(ids: string[]) {
+    selectedRef.current = ids;
+    setSelected(ids);
+  }
+  function activate(id: string) {
+    activeRef.current = id;
+    setActiveId(id);
+    select([]);
+  }
+  function install(next: Deck) {
+    deckRef.current = next;
+    setDeck(next);
+    setRevision((n) => n + 1);
+  }
+  function beginEdit() {
+    transaction.current = { snapshot: snapshot(), recorded: false };
+  }
+  function endEdit() {
+    transaction.current = null;
+  }
+  function commit(updater: (value: Deck) => Deck) {
     const current = deckRef.current;
-    if (current.slides.length <= 1) return;
-    const index = current.slides.findIndex((slide) => slide.id === activeId);
-    const nextActive = current.slides[Math.max(0, index - 1)]?.id;
-    commit((deckValue) => ({
-      ...deckValue,
-      slides: deckValue.slides.filter((slide) => slide.id !== activeId),
+    const next = updater(current);
+    if (next === current) return;
+    if (!transaction.current || !transaction.current.recorded) {
+      undoRef.current = [
+        ...undoRef.current.slice(-59),
+        transaction.current?.snapshot ?? snapshot(),
+      ];
+      if (transaction.current) transaction.current.recorded = true;
+    }
+    redoRef.current = [];
+    install({ ...next, updatedAt: new Date().toISOString() });
+    setHistory({ undo: undoRef.current.length, redo: 0 });
+  }
+  function patchSlide(patch: Partial<Slide>) {
+    commit((value) => ({
+      ...value,
+      slides: value.slides.map((s) =>
+        s.id === activeRef.current ? { ...s, ...patch } : s,
+      ),
     }));
-    if (nextActive) setActiveId(nextActive);
-    setStatusMessage('Diapositive supprimée.');
-  }, [activeId, commit]);
-
-  const moveActive = useCallback(
-    (direction: -1 | 1) => {
-      const current = deckRef.current;
-      const index = current.slides.findIndex((slide) => slide.id === activeId);
-      const target = index + direction;
-      if (index < 0 || target < 0 || target >= current.slides.length) return;
-      commit((deckValue) => {
-        const slides = [...deckValue.slides];
-        const [moved] = slides.splice(index, 1);
-        slides.splice(target, 0, moved);
-        return { ...deckValue, slides };
-      });
-      setStatusMessage(`Diapositive déplacée en position ${target + 1}.`);
-    },
-    [activeId, commit],
-  );
-
-  const undo = useCallback(() => {
-    const previous = undoStack.current.pop();
-    if (!previous) return;
-    editCheckpoint.current = null;
-    redoStack.current.push({ deck: deckRef.current, activeId });
-    deckRef.current = previous.deck;
-    setDeck(previous.deck);
-    setActiveId(
-      previous.deck.slides.some((slide) => slide.id === previous.activeId)
-        ? previous.activeId
-        : previous.deck.slides[0].id,
-    );
-    setStatusMessage('Modification annulée.');
-    setHistoryState({
-      canUndo: undoStack.current.length > 0,
-      canRedo: redoStack.current.length > 0,
-    });
-  }, [activeId]);
-
-  const redo = useCallback(() => {
-    const next = redoStack.current.pop();
-    if (!next) return;
-    editCheckpoint.current = null;
-    undoStack.current.push({ deck: deckRef.current, activeId });
-    deckRef.current = next.deck;
-    setDeck(next.deck);
-    setActiveId(
-      next.deck.slides.some((slide) => slide.id === next.activeId)
-        ? next.activeId
-        : next.deck.slides[0].id,
-    );
-    setStatusMessage('Modification rétablie.');
-    setHistoryState({
-      canUndo: undoStack.current.length > 0,
-      canRedo: redoStack.current.length > 0,
-    });
-  }, [activeId]);
-
-  const startPresentation = useCallback(
-    (preview: boolean) => {
-      const index = Math.max(
-        0,
-        deckRef.current.slides.findIndex((slide) => slide.id === activeId),
-      );
-      setIsAnimating(
-        !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-      );
-      setPresentation({
-        index,
-        previousIndex: null,
-        direction: 1,
-        buildStep: deckRef.current.slides[index].textAnimation === 'steps' ? 0 : 1,
-        buildRun: 0,
-        preview,
-        run: Date.now(),
-      });
-      setBlackout(false);
-      setShowHelp(false);
-      if (!preview && document.documentElement.requestFullscreen) {
-        void document.documentElement.requestFullscreen().catch(() => {
-          setStatusMessage('La présentation reste ouverte sans plein écran.');
-        });
-      }
-    },
-    [activeId],
-  );
-
-  const closePresentation = useCallback(() => {
-    setPresentation(null);
-    setBlackout(false);
-    setShowHelp(false);
-    if (document.fullscreenElement && document.exitFullscreen) {
-      void document.exitFullscreen().catch(() => undefined);
-    }
-    window.setTimeout(() => presentButtonRef.current?.focus(), 0);
-  }, []);
-
-  const stepPresentation = useCallback(
-    (direction: -1 | 1) => {
-      if (!presentation) return;
-      if (isAnimating) {
-        setIsAnimating(false);
-        return;
-      }
-      const currentSlide = deckRef.current.slides[presentation.index];
-      if (
-        direction === 1 &&
-        currentSlide.textAnimation === 'steps' &&
-        presentation.buildStep === 0
-      ) {
-        setIsAnimating(
-          !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-        );
-        setPresentation((current) =>
-          current
-            ? {
-                ...current,
-                previousIndex: null,
-                buildStep: 1,
-                buildRun: Date.now(),
-              }
-            : current,
-        );
-        return;
-      }
-      const target = Math.min(
-        deckRef.current.slides.length - 1,
-        Math.max(0, presentation.index + direction),
-      );
-      if (target === presentation.index) return;
-      setIsAnimating(
-        !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-      );
-      setPresentation((current) =>
-        current
+  }
+  function patchElement(id: string, patch: Partial<SlideElement>) {
+    commit((value) => ({
+      ...value,
+      slides: value.slides.map((s) =>
+        s.id === activeRef.current
           ? {
-              ...current,
-              previousIndex: current.index,
-              index: target,
-              direction,
-              buildStep:
-                deckRef.current.slides[target].textAnimation === 'steps' ? 0 : 1,
-              buildRun: 0,
-              run: Date.now(),
+              ...s,
+              elements: s.elements.map((e) =>
+                e.id === id ? ({ ...e, ...patch } as SlideElement) : e,
+              ),
             }
-          : current,
-      );
-    },
-    [isAnimating, presentation],
-  );
-
-  const goToPresentationEdge = useCallback((edge: 'start' | 'end') => {
-    const target = edge === 'start' ? 0 : deckRef.current.slides.length - 1;
-    setIsAnimating(
-      !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-    );
-    setPresentation((current) =>
-      current
-        ? {
-            ...current,
-            previousIndex: current.index,
-            index: target,
-            direction: edge === 'start' ? -1 : 1,
-            buildStep:
-              deckRef.current.slides[target].textAnimation === 'steps' ? 0 : 1,
-            buildRun: 0,
-            run: Date.now(),
-          }
-        : current,
-    );
-  }, []);
-
-  const toggleFullscreen = useCallback(() => {
-    if (document.fullscreenElement) {
-      void document.exitFullscreen();
-    } else if (document.documentElement.requestFullscreen) {
-      void document.documentElement.requestFullscreen();
-    }
-  }, []);
-
-  useEffect(() => {
-    deckRef.current = deck;
-  }, [deck]);
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed: unknown = JSON.parse(stored);
-        if (isValidDeck(parsed)) {
-          deckRef.current = parsed;
-          // oxlint-disable-next-line react/react-compiler -- hydrate once from browser storage
-          setDeck(parsed);
-          setActiveId(parsed.slides[0].id);
-          setStatusMessage('Présentation restaurée depuis ce navigateur.');
-        }
-      }
-      setSaveState('saved');
-    } catch {
-      setStatusMessage('La sauvegarde locale n’a pas pu être restaurée.');
-      setSaveState('error');
-    } finally {
-      setHydrated(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    // oxlint-disable-next-line react/react-compiler -- reflects an external storage write
-    setSaveState('saving');
-    const timeout = window.setTimeout(() => {
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(deck));
-        setSaveState('saved');
-      } catch {
-        setSaveState('error');
-        setStatusMessage('Sauvegarde locale indisponible. Exportez le fichier pour conserver vos changements.');
-      }
-    }, 280);
-    return () => window.clearTimeout(timeout);
-  }, [deck, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    function flushLocalDeck() {
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(deckRef.current));
-      } catch {
-        // The explicit export remains available if browser storage is blocked.
-      }
-    }
-    window.addEventListener('pagehide', flushLocalDeck);
-    return () => window.removeEventListener('pagehide', flushLocalDeck);
-  }, [hydrated]);
-
-  useEffect(() => {
-    if (presentation) presentationRef.current?.focus();
-  }, [presentation]);
-
-  useEffect(() => {
-    if (!presentation || !presentedSlide) return;
-    // oxlint-disable-next-line react/react-compiler -- restarts the director timeline when the scene changes
-    setIsAnimating(true);
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) {
-      setIsAnimating(false);
+          : s,
+      ),
+    }));
+  }
+  function undo() {
+    const previous = undoRef.current.pop();
+    if (!previous) return;
+    redoRef.current.push(snapshot());
+    transaction.current = null;
+    install(previous.deck);
+    activate(previous.activeId);
+    select(previous.selected);
+    setHistory({ undo: undoRef.current.length, redo: redoRef.current.length });
+  }
+  function redo() {
+    const next = redoRef.current.pop();
+    if (!next) return;
+    undoRef.current.push(snapshot());
+    transaction.current = null;
+    install(next.deck);
+    activate(next.activeId);
+    select(next.selected);
+    setHistory({ undo: undoRef.current.length, redo: redoRef.current.length });
+  }
+  function addElement(kind: SlideElementKind) {
+    if (slide.elements.length >= 300) {
+      setStatus('Cette diapositive contient déjà 300 objets.');
       return;
     }
-    const duration =
-      presentedSlide.textAnimation === 'steps' && presentation.buildRun > 0
-        ? 620
-        : sceneDuration(presentedSlide);
-    const timeout = window.setTimeout(() => setIsAnimating(false), duration);
-    return () => window.clearTimeout(timeout);
-  }, [presentation, presentedSlide]);
+    if (kind === 'image') {
+      replaceImage.current = null;
+      imageInput.current?.click();
+      return;
+    }
+    const item = makeElement(kind);
+    item.z = Math.max(0, ...slide.elements.map((e) => e.z)) + 1;
+    if (item.kind === 'text' && slide.tone === 'ink')
+      item.style.color = '#ffffff';
+    if (item.kind === 'chart' && slide.tone === 'ink')
+      item.datasets = item.datasets.map((dataset) => ({
+        ...dataset,
+        color: '#eeeeee',
+      }));
+    if (item.kind === 'shape' && slide.tone === 'ink') item.stroke = '#eeeeee';
+    patchSlide({ elements: [...slide.elements, item] });
+    select([item.id]);
+    setInspector('format');
+  }
+  function addSlide(
+    layout: 'title' | 'blank' | 'code' | 'comparison' = 'title',
+  ) {
+    if (deck.slides.length >= 250) {
+      setStatus('Cette présentation contient déjà 250 diapositives.');
+      return;
+    }
+    const next = makeSlide();
+    next.name =
+      layout === 'blank' ? 'Diapositive vide' : 'Nouvelle diapositive';
+    if (layout === 'blank') next.elements = [];
+    if (layout === 'code') {
+      const title = makeElement('text');
+      if (title.kind === 'text') {
+        title.text = 'Montrez comment ça fonctionne.';
+        title.x = 7;
+        title.y = 8;
+        title.w = 86;
+        title.h = 15;
+        title.style.fontSize = 44;
+        title.style.fontWeight = 700;
+      }
+      const code = makeElement('code');
+      Object.assign(code, { x: 7, y: 30, w: 86, h: 58 });
+      next.elements = [title, code];
+    }
+    if (layout === 'comparison') {
+      next.elements = [makeElement('text'), makeElement('text')];
+      next.elements.forEach((e, i) => {
+        if (e.kind === 'text') {
+          e.text = `${i ? 'Après' : 'Avant'}\nVotre idée en quelques mots.`;
+          e.x = 7 + i * 47;
+          e.y = 22;
+          e.w = 39;
+          e.h = 58;
+          e.style.fontSize = 38;
+        }
+      });
+    }
+    commit((value) => {
+      const slides = [...value.slides];
+      slides.splice(activeIndex + 1, 0, next);
+      return { ...value, slides };
+    });
+    activate(next.id);
+  }
+  function duplicateSlide() {
+    if (deck.slides.length >= 250) {
+      setStatus('Cette présentation contient déjà 250 diapositives.');
+      return;
+    }
+    const next = copy(slide);
+    next.id = createId('slide');
+    next.name = `${slide.name} — copie`;
+    const groups = new Map<string, string>();
+    next.elements = next.elements.map((e) => {
+      if (e.groupId && !groups.has(e.groupId))
+        groups.set(e.groupId, createId('group'));
+      return {
+        ...e,
+        id: createId('element'),
+        ...(e.groupId ? { groupId: groups.get(e.groupId) } : {}),
+      };
+    });
+    commit((value) => {
+      const slides = [...value.slides];
+      slides.splice(activeIndex + 1, 0, next);
+      return { ...value, slides };
+    });
+    activate(next.id);
+  }
+  function deleteSelection() {
+    if (selected.length) {
+      patchSlide({
+        elements: slide.elements.filter(
+          (e) => !selected.includes(e.id) || e.locked,
+        ),
+      });
+      select([]);
+    } else if (deck.slides.length > 1) {
+      commit((value) => ({
+        ...value,
+        slides: value.slides.filter((s) => s.id !== slide.id),
+      }));
+      activate(deck.slides[activeIndex === 0 ? 1 : activeIndex - 1].id);
+    }
+  }
+  function moveSlide(id: string, target: number) {
+    commit((value) => {
+      const slides = [...value.slides];
+      const index = slides.findIndex((s) => s.id === id);
+      if (index < 0) return value;
+      const [moving] = slides.splice(index, 1);
+      slides.splice(Math.max(0, Math.min(slides.length, target)), 0, moving);
+      return { ...value, slides };
+    });
+  }
+  function selectElement(id: string, additive = false) {
+    const currentSlide = deckRef.current.slides.find(
+      (s) => s.id === activeRef.current,
+    )!;
+    const target = currentSlide.elements.find((e) => e.id === id);
+    const ids = target?.groupId
+      ? currentSlide.elements
+          .filter((e) => e.groupId === target.groupId)
+          .map((e) => e.id)
+      : [id];
+    if (additive)
+      select(
+        selectedRef.current.includes(id)
+          ? selectedRef.current.filter((v) => !ids.includes(v))
+          : [...new Set([...selectedRef.current, ...ids])],
+      );
+    else if (!selectedRef.current.includes(id)) select(ids);
+  }
+  function transform(id: string, patch: Partial<SlideElement>) {
+    if ('w' in patch || 'h' in patch) {
+      patchElement(id, patch);
+      return;
+    }
+    const origin = dragSnapshot.current.find((e) => e.id === id);
+    if (!origin) {
+      patchElement(id, patch);
+      return;
+    }
+    if ('x' in patch || 'y' in patch) {
+      const items = dragSnapshot.current.filter(
+        (e) => selectedRef.current.includes(e.id) && !e.locked,
+      );
+      let dx = (patch.x ?? origin.x) - origin.x,
+        dy = (patch.y ?? origin.y) - origin.y;
+      if (snap) {
+        dx = Math.round((origin.x + dx) * 2) / 2 - origin.x;
+        dy = Math.round((origin.y + dy) * 2) / 2 - origin.y;
+      }
+      dx = Math.max(
+        -Math.min(...items.map((e) => e.x)),
+        Math.min(dx, 100 - Math.max(...items.map((e) => e.x + e.w))),
+      );
+      dy = Math.max(
+        -Math.min(...items.map((e) => e.y)),
+        Math.min(dy, 100 - Math.max(...items.map((e) => e.y + e.h))),
+      );
+      commit((value) => ({
+        ...value,
+        slides: value.slides.map((s) =>
+          s.id === activeRef.current
+            ? {
+                ...s,
+                elements: s.elements.map((e) => {
+                  const source = items.find((item) => item.id === e.id);
+                  return source
+                    ? { ...e, x: source.x + dx, y: source.y + dy }
+                    : e;
+                }),
+              }
+            : s,
+        ),
+      }));
+    } else patchElement(id, patch);
+  }
+  function duplicateObjects(
+    source = slide.elements.filter((e) => selected.includes(e.id)),
+  ) {
+    if (!source.length) {
+      duplicateSlide();
+      return;
+    }
+    if (slide.elements.length + source.length > 300) {
+      setStatus('La limite est de 300 objets par diapositive.');
+      return;
+    }
+    const groups = new Map<string, string>();
+    const highest = Math.max(0, ...slide.elements.map((e) => e.z));
+    const objects = source.map((e, i) => {
+      if (e.groupId && !groups.has(e.groupId))
+        groups.set(e.groupId, createId('group'));
+      return {
+        ...copy(e),
+        id: createId('element'),
+        x: Math.min(100 - e.w, e.x + 2),
+        y: Math.min(100 - e.h, e.y + 2),
+        z: highest + i + 1,
+        ...(e.groupId ? { groupId: groups.get(e.groupId) } : {}),
+      };
+    });
+    patchSlide({ elements: [...slide.elements, ...objects] });
+    select(objects.map((e) => e.id));
+  }
+  function groupSelection(remove = false) {
+    const groupId = remove ? undefined : createId('group');
+    patchSlide({
+      elements: slide.elements.map((e) =>
+        selected.includes(e.id) ? { ...e, groupId } : e,
+      ),
+    });
+  }
+  function align(axis: 'left' | 'center' | 'top' | 'middle' | 'distribute') {
+    const items = slide.elements.filter(
+      (e) => selected.includes(e.id) && !e.locked,
+    );
+    if (!items.length) return;
+    const ordered = [...items].sort((a, b) => a.x - b.x);
+    const left = items.length > 1 ? Math.min(...items.map((e) => e.x)) : 5;
+    const right =
+      items.length > 1 ? Math.max(...items.map((e) => e.x + e.w)) : 95;
+    const top = items.length > 1 ? Math.min(...items.map((e) => e.y)) : 5;
+    const bottom =
+      items.length > 1 ? Math.max(...items.map((e) => e.y + e.h)) : 95;
+    const gap =
+      items.length > 1
+        ? (right - left - items.reduce((sum, e) => sum + e.w, 0)) /
+          (items.length - 1)
+        : 0;
+    patchSlide({
+      elements: slide.elements.map((e) => {
+        if (!items.some((item) => item.id === e.id)) return e;
+        if (axis === 'left') return { ...e, x: left };
+        if (axis === 'center') return { ...e, x: (left + right - e.w) / 2 };
+        if (axis === 'top') return { ...e, y: top };
+        if (axis === 'middle') return { ...e, y: (top + bottom - e.h) / 2 };
+        const index = ordered.findIndex((item) => item.id === e.id);
+        return {
+          ...e,
+          x:
+            left +
+            ordered.slice(0, index).reduce((sum, item) => sum + item.w, 0) +
+            gap * index,
+        };
+      }),
+    });
+  }
+  function layer(direction: -1 | 1) {
+    if (!element) return;
+    const sorted = [...slide.elements].sort((a, b) => a.z - b.z);
+    const index = sorted.findIndex((e) => e.id === element.id);
+    const target = index + direction;
+    if (target < 0 || target >= sorted.length) return;
+    [sorted[index], sorted[target]] = [sorted[target], sorted[index]];
+    patchSlide({ elements: sorted.map((e, z) => ({ ...e, z })) });
+  }
+  function applyTheme(theme: DeckTheme, all = true) {
+    const tone = theme === 'terminal' ? 'ink' : 'paper';
+    commit((value) => ({
+      ...value,
+      theme,
+      slides: value.slides.map((s) =>
+        !all && s.id !== activeId
+          ? s
+          : {
+              ...s,
+              tone,
+              elements: s.elements.map((e) =>
+                e.kind === 'text'
+                  ? {
+                      ...e,
+                      style: {
+                        ...e.style,
+                        color: tone === 'ink' ? '#ffffff' : '#171717',
+                        fontFamily: theme === 'editorial' ? 'Georgia' : 'Inter',
+                        background: 'transparent',
+                      },
+                    }
+                  : e.kind === 'chart'
+                    ? {
+                        ...e,
+                        datasets: e.datasets.map((dataset, index) => ({
+                          ...dataset,
+                          color: (tone === 'ink'
+                            ? ['#eeeeee', '#bbbbbb', '#888888', '#666666']
+                            : ['#171717', '#555555', '#888888', '#bbbbbb'])[
+                            index % 4
+                          ],
+                        })),
+                      }
+                    : e.kind === 'shape'
+                      ? { ...e, stroke: tone === 'ink' ? '#eeeeee' : '#171717' }
+                      : e.kind === 'table'
+                        ? {
+                            ...e,
+                            fill: tone === 'ink' ? '#262626' : '#ffffff',
+                            textColor: tone === 'ink' ? '#ffffff' : '#171717',
+                          }
+                        : e,
+              ),
+            },
+      ),
+    }));
+  }
+  async function imageFiles(
+    files: FileList | File[],
+    replaceId: string | null = null,
+  ) {
+    const items: SlideElement[] = [];
+    const targetId = activeRef.current;
+    for (const file of Array.from(files).slice(0, 12)) {
+      if (slide.elements.length + items.length >= 300) break;
+      if (
+        !/^image\/(png|jpeg|webp|gif)$/.test(file.type) ||
+        file.size > 5 * 1024 * 1024
+      ) {
+        setStatus('Images PNG, JPEG, WebP ou GIF, jusqu’à 5 Mo chacune.');
+        continue;
+      }
+      let src: string;
+      try {
+        src = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () =>
+            typeof reader.result === 'string'
+              ? resolve(reader.result)
+              : reject(new Error('Image illisible.'));
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      } catch {
+        setStatus(`Impossible de lire l’image « ${file.name} ».`);
+        continue;
+      }
+      if (replaceId) {
+        commit((value) => ({
+          ...value,
+          slides: value.slides.map((s) =>
+            s.id === targetId
+              ? {
+                  ...s,
+                  elements: s.elements.map((e) =>
+                    e.id === replaceId && e.kind === 'image'
+                      ? { ...e, src, alt: file.name }
+                      : e,
+                  ),
+                }
+              : s,
+          ),
+        }));
+        return;
+      }
+      const item = makeElement('image');
+      if (item.kind === 'image') {
+        item.src = src;
+        item.alt = file.name;
+        item.z =
+          Math.max(0, ...slide.elements.map((e) => e.z)) + items.length + 1;
+        items.push(item);
+      }
+    }
+    if (items.length) {
+      commit((value) => ({
+        ...value,
+        slides: value.slides.map((s) =>
+          s.id === targetId
+            ? { ...s, elements: [...s.elements, ...items].slice(0, 300) }
+            : s,
+        ),
+      }));
+      if (activeRef.current === targetId) select(items.map((e) => e.id));
+      setInspector('format');
+      setStatus(`${items.length} image(s) ajoutée(s).`);
+    }
+  }
+  async function importDeck(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      setStatus('Fichier trop volumineux (50 Mo maximum).');
+      return;
+    }
+    try {
+      let next: Deck | null,
+        warnings: string[] = [];
+      if (/\.(pptx|odp)$/i.test(file.name)) {
+        const office = await import('@/lib/office');
+        const result = await office.importOffice(file);
+        next = migrateDeck(result.deck);
+        warnings = result.warnings;
+      } else next = migrateDeck(JSON.parse(await file.text()));
+      if (!next) throw new Error('Format de présentation invalide.');
+      await saveLocalDeck(deckRef.current);
+      next = { ...next, id: createId('deck') };
+      commit(() => next!);
+      activate(next.slides[0].id);
+      setStatus(
+        warnings.length
+          ? `Import terminé. ${warnings.join(' ')}`
+          : 'Présentation importée.',
+      );
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Import impossible.');
+    }
+  }
+  async function exportDeck(format: 'json' | 'pptx' | 'odp' | 'html') {
+    try {
+      const current = deckRef.current;
+      if (format === 'json')
+        download(
+          new Blob([JSON.stringify(current)], { type: 'application/json' }),
+          `${fileName(current.title)}.buddydeck.json`,
+        );
+      else if (format === 'html') {
+        const html = await import('@/lib/html-export');
+        download(
+          await html.exportHtml(current),
+          `${fileName(current.title)}.html`,
+        );
+      } else {
+        const office = await import('@/lib/office');
+        download(
+          format === 'pptx'
+            ? await office.exportPptx(current)
+            : office.exportOdp(current),
+          `${fileName(current.title)}.${format}`,
+        );
+      }
+      setStatus(
+        format === 'pptx' || format === 'odp'
+          ? 'Export Office simplifié. Animations Buddy, médias et certains objets ne sont pas reproduits à l’identique. Conservez aussi le fichier Buddy.'
+          : 'Présentation exportée.',
+      );
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Export impossible.');
+    }
+  }
+  function setPlaying(value: PlaybackState | null) {
+    if (!value || value.skip || value.run !== playbackRef.current?.run) {
+      const busy = Boolean(value && !value.skip);
+      busyRef.current = busy;
+      setPlaybackBusy(busy);
+    }
+    playbackRef.current = value;
+    setPlayback(value);
+  }
+  /* oxlint-disable react/react-compiler -- Stable RAF callback intentionally reads the latest channel and playback from refs. */
+  const onBusy = useCallback(
+    (busy: boolean) => {
+      busyRef.current = busy;
+      setPlaybackBusy(busy);
+      if (audience)
+        channel.current?.postMessage({
+          type: 'busy',
+          busy,
+          run: playbackRef.current?.run,
+        });
+    },
+    [audience],
+  );
+  /* oxlint-enable react/react-compiler */
+  function togglePlayback(key: 'blackout' | 'laser') {
+    const p = playbackRef.current;
+    if (p) setPlaying({ ...p, [key]: !p[key] });
+  }
+  function start(index: number, inPresenter = false) {
+    const state: PlaybackState = {
+      index,
+      previousIndex: null,
+      step: 0,
+      run: 1,
+      skip: false,
+      blackout: false,
+      laser: false,
+    };
+    if (inPresenter) {
+      if (!('BroadcastChannel' in window)) {
+        setStatus(
+          'La régie multi-fenêtres n’est pas disponible dans ce navigateur.',
+        );
+        return;
+      }
+      channel.current?.close();
+      const id = createId('audience');
+      const session = new BroadcastChannel(id);
+      channel.current = session;
+      session.onmessage = (event: MessageEvent<AudienceMessage>) => {
+        if (event.data.type === 'ready')
+          session.postMessage({
+            type: 'snapshot',
+            deck: deckRef.current,
+            playback: playbackRef.current,
+          });
+        if (event.data.type === 'next') commands.current.next();
+        if (event.data.type === 'previous') commands.current.previous();
+        if (event.data.type === 'close') commands.current.close();
+        if (event.data.type === 'blackout') commands.current.blackout();
+        if (event.data.type === 'laser') commands.current.laser();
+        if (
+          event.data.type === 'busy' &&
+          event.data.run === playbackRef.current?.run
+        ) {
+          const busy = event.data.busy && !playbackRef.current.skip;
+          busyRef.current = busy;
+          setPlaybackBusy(busy);
+        }
+      };
+      const url = new URL(window.location.href);
+      url.search = '';
+      url.searchParams.set('audience', id);
+      const opened = window.open(
+        url.href,
+        'buddy-keynote-audience',
+        'popup,width=1280,height=720',
+      );
+      if (!opened) {
+        session.close();
+        channel.current = null;
+        setStatus('Autorisez la fenêtre de présentation pour ouvrir la régie.');
+        return;
+      }
+      audienceWindow.current = opened;
+    }
+    endEdit();
+    busyRef.current = true;
+    setPlaying(state);
+    setPresenter(inPresenter);
+    setElapsedSeconds(0);
+  }
+  function close() {
+    setPlaying(null);
+    setPresenter(false);
+    busyRef.current = false;
+    channel.current?.postMessage({
+      type: 'snapshot',
+      deck: deckRef.current,
+      playback: null,
+    });
+    audienceWindow.current?.close();
+    audienceWindow.current = null;
+    channel.current?.close();
+    channel.current = null;
+    if (document.fullscreenElement)
+      void document.exitFullscreen().catch(() => undefined);
+    setTimeout(() => presentButton.current?.focus(), 0);
+  }
+  function goTo(index: number) {
+    const p = playbackRef.current;
+    if (!p) return;
+    busyRef.current = true;
+    setPlaying({
+      ...p,
+      index,
+      previousIndex: p.index,
+      step: 0,
+      run: p.run + 1,
+      skip: false,
+    });
+  }
+  function next() {
+    const p = playbackRef.current;
+    if (!p) return;
+    if (busyRef.current) {
+      busyRef.current = false;
+      setPlaying({ ...p, skip: true });
+      return;
+    }
+    const current = deckRef.current.slides[p.index];
+    if (p.step < animationGroups(current).length - 1) {
+      busyRef.current = true;
+      setPlaying({
+        ...p,
+        previousIndex: null,
+        step: p.step + 1,
+        run: p.run + 1,
+        skip: false,
+      });
+    } else {
+      const target = nextVisibleIndex(deckRef.current.slides, p.index, 1);
+      if (target !== null) goTo(target);
+      else setStatus('Fin de la présentation.');
+    }
+  }
+  function previous() {
+    const p = playbackRef.current;
+    if (!p) return;
+    const target =
+      p.step > 0
+        ? p.index
+        : nextVisibleIndex(deckRef.current.slides, p.index, -1);
+    if (target !== null)
+      setPlaying({
+        ...p,
+        index: target,
+        previousIndex: null,
+        step:
+          p.step > 0
+            ? p.step - 1
+            : animationGroups(deckRef.current.slides[target]).length - 1,
+        run: p.run + 1,
+        skip: true,
+      });
+  }
+  useEffect(() => {
+    commands.current = {
+      next,
+      previous,
+      close,
+      blackout: () => togglePlayback('blackout'),
+      laser: () => togglePlayback('laser'),
+    };
+  });
 
   useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (isTextInputTarget(event.target)) return;
-
-      if (presentation) {
-        const isButtonActivation =
-          event.target instanceof HTMLElement &&
-          Boolean(event.target.closest('button, a')) &&
-          (event.key === ' ' || event.key === 'Enter');
-        if (isButtonActivation) return;
-        if (event.key === 'Escape') {
-          if (showHelp) setShowHelp(false);
-          else closePresentation();
-          return;
+    const id = new URLSearchParams(window.location.search).get('audience');
+    if (id) {
+      // oxlint-disable-next-line react/react-compiler -- hydrate the audience route from the browser URL once
+      setAudience(true);
+      const session = new BroadcastChannel(id);
+      channel.current = session;
+      session.onmessage = (event: MessageEvent<AudienceMessage>) => {
+        if (event.data.type === 'snapshot') {
+          const valid = migrateDeck(event.data.deck);
+          if (!valid) return;
+          deckRef.current = valid;
+          setDeck(valid);
+          playbackRef.current = event.data.playback;
+          setPlayback(event.data.playback);
+          setAudienceReady(true);
         }
-        if (showHelp) return;
-        if (['ArrowRight', 'ArrowDown', ' ', 'PageDown'].includes(event.key)) {
-          event.preventDefault();
-          stepPresentation(1);
+      };
+      session.postMessage({ type: 'ready' });
+      return () => session.close();
+    }
+    let live = true;
+    void restoreLocalDeck()
+      .then(async (saved) => {
+        if (!live) return;
+        if (saved) {
+          deckRef.current = saved;
+          setDeck(saved);
+          activeRef.current = saved.slides[0].id;
+          setActiveId(saved.slides[0].id);
+        }
+        try {
+          await saveLocalDeck(saved ?? deckRef.current);
+          if (live) setSaveState('Enregistré sur cet appareil');
+        } catch {
+          if (live) {
+            setSaveState('Export conseillé');
+            setStatus(
+              'Votre contenu est chargé, mais le stockage local est indisponible. Exportez le fichier Buddy pour le conserver.',
+            );
+          }
+        }
+      })
+      .catch(() => {
+        if (live) {
+          setSaveState('Sauvegarde indisponible');
+          setStatus(
+            'Impossible de restaurer la sauvegarde. Le fichier d’origine est conservé.',
+          );
+        }
+      })
+      .finally(() => {
+        if (live) setHydrated(true);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!hydrated || !revision || audience) return;
+    // oxlint-disable-next-line react/react-compiler -- report the pending external IndexedDB write
+    setSaveState('Enregistrement…');
+    let current = true;
+    const timer = setTimeout(() => {
+      void saveLocalDeck(deck)
+        .then(() => {
+          if (current) setSaveState('Enregistré sur cet appareil');
+        })
+        .catch(() => {
+          if (current) {
+            setSaveState('Export conseillé');
+            setStatus(
+              'Sauvegarde indisponible. Exportez le fichier Buddy pour conserver vos changements.',
+            );
+          }
+        });
+    }, 250);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [deck, revision, hydrated, audience]);
+  useEffect(() => {
+    const flush = () => {
+      if (hydrated && revision && !audience)
+        void saveLocalDeck(deckRef.current).catch(() => undefined);
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', flush);
+    };
+  }, [hydrated, revision, audience]);
+  useEffect(() => {
+    if (presenter)
+      channel.current?.postMessage({ type: 'snapshot', deck, playback });
+  }, [deck, playback, presenter]);
+  useEffect(() => {
+    if (!playback || audience || playbackBusy) return;
+    const current = deck.slides[playback.index];
+    if (!current.autoAdvance) return;
+    const duration =
+      playback.step < animationGroups(current).length - 1
+        ? 0
+        : current.autoAdvance;
+    const timer = setTimeout(() => commands.current.next(), duration);
+    return () => clearTimeout(timer);
+  }, [playback, deck, audience, playbackBusy]);
+  useEffect(() => {
+    if (!presenter) return;
+    presentationStartedAt.current = Date.now();
+    const timer = setInterval(() => {
+      setElapsedSeconds(
+        Math.floor((Date.now() - presentationStartedAt.current) / 1000),
+      );
+      if (audienceWindow.current?.closed) commands.current.close();
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [presenter]);
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!hydrated && !audience) return;
+      if (isInput(event.target)) return;
+      if (playback) {
+        if (
+          (event.key === ' ' || event.key === 'Enter') &&
+          event.target instanceof HTMLElement &&
+          event.target.closest('button,a')
+        )
           return;
+        if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(event.key)) {
+          event.preventDefault();
+          if (audience) channel.current?.postMessage({ type: 'next' });
+          else next();
         }
         if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(event.key)) {
           event.preventDefault();
-          stepPresentation(-1);
-          return;
+          if (audience) channel.current?.postMessage({ type: 'previous' });
+          else previous();
         }
-        if (event.key === 'Home') goToPresentationEdge('start');
-        if (event.key === 'End') goToPresentationEdge('end');
-        if (event.key.toLowerCase() === 'b') setBlackout((value) => !value);
-        if (event.key.toLowerCase() === 'f') toggleFullscreen();
-        if (event.key === '?') setShowHelp((value) => !value);
+        if (event.key === 'Escape') {
+          if (audience) channel.current?.postMessage({ type: 'close' });
+          else close();
+        }
+        if (event.key.toLowerCase() === 'b') {
+          if (audience) channel.current?.postMessage({ type: 'blackout' });
+          else togglePlayback('blackout');
+        }
+        if (event.key.toLowerCase() === 'l') {
+          if (audience) channel.current?.postMessage({ type: 'laser' });
+          else togglePlayback('laser');
+        }
+        if (event.key.toLowerCase() === 'f') {
+          if (document.fullscreenElement) void document.exitFullscreen();
+          else
+            void document.documentElement
+              .requestFullscreen()
+              .catch(() => undefined);
+        }
         return;
       }
-
       const modifier = event.metaKey || event.ctrlKey;
       if (modifier && event.key.toLowerCase() === 'z') {
         event.preventDefault();
@@ -859,678 +1088,1054 @@ export default function Home() {
       }
       if (modifier && event.key.toLowerCase() === 'd') {
         event.preventDefault();
-        duplicateActive();
+        duplicateObjects();
+      }
+      if (modifier && event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        select(slide.elements.map((e) => e.id));
+      }
+      if (modifier && event.key.toLowerCase() === 'c' && selected.length) {
+        event.preventDefault();
+        clipboard.current = copy(
+          slide.elements.filter((e) => selected.includes(e.id)),
+        );
+        setStatus('Objets copiés.');
+      }
+      if (
+        modifier &&
+        event.key.toLowerCase() === 'v' &&
+        clipboard.current.length
+      ) {
+        event.preventDefault();
+        duplicateObjects(clipboard.current);
+      }
+      if (modifier && event.key.toLowerCase() === 'g' && selected.length) {
+        event.preventDefault();
+        groupSelection(event.shiftKey);
       }
       if (modifier && event.key === 'Enter') {
         event.preventDefault();
-        startPresentation(false);
+        start(activeIndex);
       }
-      if (event.altKey && event.key === 'ArrowUp') {
+      if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
-        moveActive(-1);
+        deleteSelection();
       }
-      if (event.altKey && event.key === 'ArrowDown') {
+      if (event.key === 'Escape') select([]);
+      if (event.altKey && ['ArrowUp', 'ArrowDown'].includes(event.key)) {
         event.preventDefault();
-        moveActive(1);
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    closePresentation,
-    duplicateActive,
-    goToPresentationEdge,
-    moveActive,
-    presentation,
-    redo,
-    showHelp,
-    startPresentation,
-    stepPresentation,
-    toggleFullscreen,
-    undo,
-  ]);
-
-  useEffect(() => {
-    const context = document.modelContext;
-    if (!context?.registerTool) return;
-    const lifecycle = new AbortController();
-    const options = { signal: lifecycle.signal };
-
-    const register = (tool: WebMcpTool) => {
-      try {
-        void Promise.resolve(context.registerTool(tool, options)).catch(() => undefined);
-      } catch {
-        // Browsers without the proposed WebMCP implementation keep the visible UI.
+        moveSlide(slide.id, activeIndex + (event.key === 'ArrowUp' ? -1 : 1));
+      } else if (
+        selected.length &&
+        ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)
+      ) {
+        event.preventDefault();
+        const distance = event.shiftKey ? 1 : 0.1;
+        patchSlide({
+          elements: slide.elements.map((e) =>
+            selected.includes(e.id) && !e.locked
+              ? {
+                  ...e,
+                  x: Math.max(
+                    0,
+                    Math.min(
+                      100 - e.w,
+                      e.x +
+                        (event.key === 'ArrowRight'
+                          ? distance
+                          : event.key === 'ArrowLeft'
+                            ? -distance
+                            : 0),
+                    ),
+                  ),
+                  y: Math.max(
+                    0,
+                    Math.min(
+                      100 - e.h,
+                      e.y +
+                        (event.key === 'ArrowDown'
+                          ? distance
+                          : event.key === 'ArrowUp'
+                            ? -distance
+                            : 0),
+                    ),
+                  ),
+                }
+              : e,
+          ),
+        });
       }
     };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  });
+  useEffect(() => {
+    const handler = () => setPrinting(false);
+    window.addEventListener('afterprint', handler);
+    return () => window.removeEventListener('afterprint', handler);
+  }, []);
 
-    register({
-      name: 'get_buddy_keynote',
-      title: 'Lire la présentation Buddy',
-      description: 'Retourne le titre, le nombre de diapositives et leur ordre actuel.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-      annotations: { readOnlyHint: true, untrustedContentHint: true },
-      execute() {
-        const current = deckRef.current;
-        return {
-          title: current.title,
-          slideCount: current.slides.length,
-          slides: current.slides.map((slide, index) => ({
-            index: index + 1,
-            id: slide.id,
-            title: slide.title,
-            transition: slide.transition,
-            textAnimation: slide.textAnimation,
-          })),
-        };
-      },
-    });
-
-    register({
-      name: 'create_buddy_slide',
-      title: 'Créer une diapositive Buddy',
-      description: 'Ajoute une diapositive après la sélection actuelle et l’ouvre dans l’éditeur.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', minLength: 1, maxLength: 120 },
-          body: { type: 'string', maxLength: 320 },
-        },
-        required: ['title'],
-        additionalProperties: false,
-      },
-      annotations: { readOnlyHint: false, untrustedContentHint: true },
-      execute(input) {
-        if (!input || typeof input !== 'object') {
-          throw new Error('Un titre est requis.');
-        }
-        const value = input as { title?: unknown; body?: unknown };
-        if (
-          typeof value.title !== 'string' ||
-          value.title.trim().length === 0 ||
-          value.title.length > 120
-        ) {
-          throw new Error('Le titre doit contenir entre 1 et 120 caractères.');
-        }
-        if (value.body !== undefined && typeof value.body !== 'string') {
-          throw new Error('Le texte doit être une chaîne de caractères.');
-        }
-        const slide = addSlideFromContent(
-          value.title,
-          typeof value.body === 'string' ? value.body : undefined,
-        );
-        return { id: slide.id, title: slide.title, status: 'created' };
-      },
-    });
-
-    return () => lifecycle.abort();
-  }, [addSlideFromContent]);
-
-  function updateActive(patch: Partial<Slide>, record = true) {
-    updateSlide(activeSlide.id, patch, record);
-  }
-
-  function exportDeck() {
-    const blob = new Blob([JSON.stringify(deckRef.current, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${deckRef.current.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') || 'buddy-keynote'}.buddydeck.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setStatusMessage('Présentation exportée.');
-  }
-
-  async function importDeck(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    try {
-      const parsed: unknown = JSON.parse(await file.text());
-      if (!isValidDeck(parsed)) throw new Error('Format non reconnu');
-      commit(() => ({ ...parsed, updatedAt: new Date().toISOString() }));
-      setActiveId(parsed.slides[0].id);
-      setStatusMessage('Présentation importée.');
-    } catch {
-      setStatusMessage('Import impossible : fichier Buddy invalide.');
-    }
-  }
-
-  function handleDeckTitleKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter') event.currentTarget.blur();
-  }
-
-  const directorState: BuddyState = isAnimating ? 'work' : 'done';
+  if (audience)
+    return audienceReady && playback ? (
+      <StudioPlayer
+        deck={deck}
+        state={playback}
+        onNext={() => channel.current?.postMessage({ type: 'next' })}
+        onPrevious={() => channel.current?.postMessage({ type: 'previous' })}
+        onClose={() => channel.current?.postMessage({ type: 'close' })}
+        onBusy={onBusy}
+      />
+    ) : (
+      <div className="audience-wait">
+        <Buddy
+          caption={
+            audienceReady
+              ? 'La présentation est terminée.'
+              : 'Connexion à la régie…'
+          }
+        />
+      </div>
+    );
+  const audienceInert = Boolean(playback) || !hydrated;
 
   return (
-    <main className="keynote-app">
-      <header
-        className="app-toolbar"
-        inert={presentation ? true : undefined}
-        aria-hidden={presentation ? true : undefined}
-      >
-        <div className="brand-lockup">
-          <BuddyLogo />
-          <div>
-            <strong>Buddy Keynote</strong>
-            <span>Skills Transfer Hub</span>
-          </div>
-        </div>
-
-        <div className="deck-title-field">
-          <Input
-            value={deck.title}
-            onFocus={checkpoint}
-            onBlur={finishCheckpoint}
-            onKeyDown={handleDeckTitleKeyDown}
-            onChange={(event) => {
-              consumeCheckpoint();
-              setDeckDirect((current) => ({
-                ...current,
-                title: event.target.value,
-                updatedAt: new Date().toISOString(),
-              }));
-            }}
-            aria-label="Titre de la présentation"
-            maxLength={80}
-          />
-          <span>
-            {saveState === 'loading'
-              ? 'Chargement…'
-              : saveState === 'saving'
-                ? 'Enregistrement…'
-                : saveState === 'error'
-                  ? 'Sauvegarde indisponible · export conseillé'
-                  : 'Enregistré dans ce navigateur'}
-          </span>
-        </div>
-
-        <div className="toolbar-actions">
-          <input
-            ref={importInputRef}
-            className="sr-only"
-            type="file"
-            accept=".json,.buddydeck"
-            onChange={importDeck}
-            aria-label="Importer une présentation Buddy"
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Importer"
-            title="Importer"
-            onClick={() => importInputRef.current?.click()}
-          >
-            <FileUp />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Exporter"
-            title="Exporter"
-            onClick={exportDeck}
-          >
-            <Download />
-          </Button>
-          <span className="toolbar-separator" />
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Annuler"
-            title="Annuler (⌘Z)"
-            disabled={!historyState.canUndo}
-            onClick={undo}
-          >
-            <Undo2 />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Rétablir"
-            title="Rétablir (⇧⌘Z)"
-            disabled={!historyState.canRedo}
-            onClick={redo}
-          >
-            <Redo2 />
-          </Button>
-          <span className="toolbar-separator" />
-          <Button variant="outline" onClick={() => startPresentation(true)}>
-            <Maximize2 data-icon="inline-start" />
-            Aperçu
-          </Button>
-          <Button ref={presentButtonRef} onClick={() => startPresentation(false)}>
-            <Play data-icon="inline-start" />
-            Présenter
-          </Button>
-        </div>
-      </header>
-
+    <main className="studio-app" data-theme={deck.theme}>
+      <StudioWebMcp
+        deck={deck}
+        onCreate={(title, body) => {
+          if (deck.slides.length >= 250)
+            throw new Error('Limite de 250 diapositives atteinte.');
+          const next = makeSlide(title, body);
+          commit((value) => {
+            const slides = [...value.slides];
+            slides.splice(activeIndex + 1, 0, next);
+            return { ...value, slides };
+          });
+          activate(next.id);
+          return next.id;
+        }}
+      />
       <div
-        className="editor-grid"
-        inert={presentation ? true : undefined}
-        aria-hidden={presentation ? true : undefined}
+        className="studio-editor"
+        inert={audienceInert ? true : undefined}
+        aria-hidden={audienceInert ? true : undefined}
       >
-        <aside className="slides-panel" aria-label="Diapositives">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow-label">DIAPOSITIVES</span>
-              <strong>{deck.slides.length} scènes</strong>
-            </div>
+        <header className="studio-header">
+          <div className="studio-brand">
+            <BuddyLogo />
+            <strong>Buddy Keynote</strong>
+            <span className="studio-version">Studio</span>
+          </div>
+          <div className="studio-document">
+            <Input
+              aria-label="Nom de la présentation"
+              value={deck.title}
+              maxLength={120}
+              onFocus={beginEdit}
+              onBlur={endEdit}
+              onChange={(e) =>
+                commit((value) => ({ ...value, title: e.target.value }))
+              }
+            />
+            <span>{saveState}</span>
+          </div>
+          <div className="studio-header-actions">
+            <IconAction
+              title="Mes présentations"
+              onClick={() => {
+                void listLocalDecks()
+                  .then(setLibrary)
+                  .catch(() => setStatus('Bibliothèque indisponible.'));
+              }}
+            >
+              <FolderOpen />
+            </IconAction>
+            <IconAction
+              title="Annuler (⌘Z)"
+              disabled={!history.undo}
+              onClick={undo}
+            >
+              <Undo2 />
+            </IconAction>
+            <IconAction
+              title="Rétablir (⇧⌘Z)"
+              disabled={!history.redo}
+              onClick={redo}
+            >
+              <Redo2 />
+            </IconAction>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="outline" size="sm" />}
+              >
+                <Download />
+                Fichier
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-60">
+                <DropdownMenuItem onClick={() => importInput.current?.click()}>
+                  <FileUp />
+                  Importer Buddy / PPTX / ODP
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => void exportDeck('json')}>
+                  Enregistrer un fichier Buddy
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void exportDeck('pptx')}>
+                  Exporter PowerPoint (.pptx)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void exportDeck('odp')}>
+                  Exporter OpenDocument (.odp)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void exportDeck('html')}>
+                  Exporter le diaporama HTML
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setPrinting(true);
+                    setTimeout(() => window.print(), 200);
+                  }}
+                >
+                  <Printer />
+                  Imprimer / PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
-              size="icon-sm"
               variant="outline"
-              onClick={() => addSlideFromContent()}
-              aria-label="Ajouter une diapositive"
+              size="sm"
+              onClick={() => start(activeIndex, true)}
+            >
+              <Monitor />
+              Régie
+            </Button>
+            <Button
+              ref={presentButton}
+              size="sm"
+              onClick={() => start(activeIndex)}
+            >
+              <Play />
+              Présenter
+            </Button>
+          </div>
+        </header>
+        <nav className="studio-ribbon" aria-label="Outils d’insertion">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="outline" size="sm" />}
             >
               <Plus />
+              Diapositive
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-52">
+              <DropdownMenuItem onClick={() => addSlide()}>
+                Titre et contenu
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => addSlide('blank')}>
+                Diapositive vide
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => addSlide('code')}>
+                Démonstration de code
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => addSlide('comparison')}>
+                Comparaison
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span className="ribbon-divider" />
+          {(
+            [
+              [Type, 'text'],
+              [Shapes, 'shape'],
+              [ImagePlus, 'image'],
+              [Braces, 'code'],
+              [Table2, 'table'],
+              [ChartNoAxesColumn, 'chart'],
+              [Video, 'media'],
+            ] as const
+          ).map(([Icon, kind]) => (
+            <Button
+              key={kind}
+              variant="ghost"
+              size="sm"
+              onClick={() => addElement(kind)}
+            >
+              <Icon />
+              {elementLabels[kind]}
             </Button>
-          </div>
-
-          <div className="slide-list">
-            {deck.slides.map((slide, index) => (
-              <button
-                type="button"
-                className="slide-thumbnail"
-                data-active={slide.id === activeId || undefined}
-                key={slide.id}
-                onClick={() => setActiveId(slide.id)}
-                aria-label={`Diapositive ${index + 1} : ${slide.title.replace('\n', ' ')}`}
-                aria-current={slide.id === activeId ? 'true' : undefined}
-              >
-                <span className="slide-index">{String(index + 1).padStart(2, '0')}</span>
-                <span className="thumbnail-frame">
-                  <SlideSurface slide={slide} />
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <Button className="add-slide-button" variant="ghost" onClick={() => addSlideFromContent()}>
-            <Plus data-icon="inline-start" />
-            Nouvelle diapositive
+          ))}
+          <Button variant="ghost" size="sm" onClick={() => addElement('buddy')}>
+            <BuddyLogo />
+            Buddy
           </Button>
-        </aside>
-
-        <section className="stage-panel" aria-label="Zone d’édition">
-          <div className="stage-meta">
-            <span>
-              Scène {activeIndex + 1} sur {deck.slides.length}
-            </span>
-            <span className="stage-status">
-              <span className="status-dot" />
-              {transitionLabel}
-            </span>
-          </div>
-          <div className="canvas-wrap">
-            <SlideSurface
-              slide={activeSlide}
-              editable
-              onBeginEdit={checkpoint}
-              onEndEdit={finishCheckpoint}
-              onChange={(patch) => updateActive(patch, false)}
-            />
-          </div>
-          <div className="canvas-toolbar" aria-label="Actions de la diapositive">
-            <Button size="sm" variant="ghost" onClick={() => startPresentation(true)}>
-              <Sparkles data-icon="inline-start" />
-              Animer avec Buddy
-            </Button>
-            <span />
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Déplacer vers le haut"
-              title="Déplacer vers le haut (⌥↑)"
-              disabled={activeIndex === 0}
-              onClick={() => moveActive(-1)}
-            >
-              <ArrowUp />
-            </Button>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Déplacer vers le bas"
-              title="Déplacer vers le bas (⌥↓)"
-              disabled={activeIndex === deck.slides.length - 1}
-              onClick={() => moveActive(1)}
-            >
-              <ArrowDown />
-            </Button>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Dupliquer la diapositive"
-              title="Dupliquer (⌘D)"
-              onClick={duplicateActive}
-            >
-              <Copy />
-            </Button>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Supprimer la diapositive"
-              title="Supprimer"
-              disabled={deck.slides.length === 1}
-              onClick={deleteActive}
-            >
-              <Trash2 />
-            </Button>
-          </div>
-        </section>
-
-        <aside className="inspector-panel" aria-label="Réglages">
-          <Tabs defaultValue="scene" className="inspector-tabs">
-            <TabsList variant="line">
-              <TabsTrigger value="scene">Mise en scène</TabsTrigger>
-              <TabsTrigger value="notes">Notes</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="scene">
-              <section className="inspector-section buddy-director-card">
-                <div className="director-copy">
-                  <span className="eyebrow-label">BUDDY DIRECTOR</span>
-                  <strong>{transitionLabel}</strong>
-                  <p>{transitionDescriptions[activeSlide.transition]}</p>
-                </div>
-                <Buddy state="done" caption="Prêt pour la scène." />
-              </section>
-
-              <section className="inspector-section form-stack">
-                <div className="field">
-                  <span id="layout-label">Composition</span>
-                  <Select
-                    value={activeSlide.layout}
-                    onValueChange={(value) =>
-                      value && updateActive({ layout: value as SlideLayout })
-                    }
-                  >
-                    <SelectTrigger className="w-full" aria-labelledby="layout-label">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(layoutLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </section>
-
-              <section className="inspector-section">
-                <div className="section-title">
-                  <strong>Fond</strong>
-                  <span>Diapositive entière</span>
-                </div>
-                <fieldset className="tone-picker">
-                  <legend className="sr-only">Fond de la diapositive</legend>
-                  {(['paper', 'mist', 'ink'] as const).map((tone) => (
-                    <button
-                      type="button"
-                      key={tone}
-                      data-tone={tone}
-                      data-active={activeSlide.tone === tone || undefined}
-                      onClick={() => updateActive({ tone })}
-                      aria-label={toneLabels[tone]}
-                      title={toneLabels[tone]}
-                    >
-                      <span>{toneLabels[tone]}</span>
-                    </button>
-                  ))}
-                </fieldset>
-              </section>
-
-              <section className="inspector-section form-stack">
-                <div className="field">
-                  <span id="transition-label">Transition</span>
-                  <Select
-                    value={activeSlide.transition}
-                    onValueChange={(value) =>
-                      value && updateActive({ transition: value as Transition })
-                    }
-                  >
-                    <SelectTrigger className="w-full" aria-labelledby="transition-label">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(transitionLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="field">
-                  <span id="animation-label">Animation du texte</span>
-                  <Select
-                    value={activeSlide.textAnimation}
-                    onValueChange={(value) =>
-                      value && updateActive({ textAnimation: value as TextAnimation })
-                    }
-                  >
-                    <SelectTrigger className="w-full" aria-labelledby="animation-label">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(animationLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </section>
-
-              <Button className="preview-transition" variant="outline" onClick={() => startPresentation(true)}>
-                <Play data-icon="inline-start" />
-                Jouer la scène
-              </Button>
-            </TabsContent>
-
-            <TabsContent value="notes">
-              <section className="inspector-section form-stack">
-                <label htmlFor="speaker-notes">Notes de l’orateur</label>
-                  <Textarea
-                    id="speaker-notes"
-                    value={activeSlide.notes}
-                    onFocus={checkpoint}
-                    onBlur={finishCheckpoint}
-                    onChange={(event) => updateActive({ notes: event.target.value }, false)}
-                    placeholder="Ce que vous souhaitez dire, sans l’afficher au public."
-                    rows={8}
-                    maxLength={2000}
-                  />
-                <p className="notes-hint">Les notes restent invisibles pendant la présentation.</p>
-              </section>
-            </TabsContent>
-          </Tabs>
-        </aside>
-      </div>
-
-      <output className="app-status sr-only" aria-live="polite" aria-atomic="true">
-        {statusMessage}
-      </output>
-
-      {presentation && presentedSlide ? (
-        <section
-          ref={presentationRef}
-          tabIndex={-1}
-          className="presentation-mode"
-          data-preview={presentation.preview || undefined}
-          aria-label="Mode présentation"
-        >
-          <div
-            className="presentation-stage"
-            data-skip-animation={!isAnimating || undefined}
+          <span className="ribbon-spacer" />
+          <Button
+            variant={inspector === 'animate' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setInspector('animate')}
           >
-            {outgoingSlide ? (
-              <div
-                key={`out-${presentation.run}`}
-                className="presentation-frame presentation-frame-outgoing"
-                data-transition={presentedSlide.transition}
-                data-direction={presentation.direction}
-                aria-hidden="true"
+            <Sparkles />
+            Animer
+          </Button>
+        </nav>
+        <div className="studio-workspace">
+          <aside className="studio-filmstrip" aria-label="Diapositives">
+            <div className="filmstrip-heading">
+              <span>{deck.slides.length} diapositives</span>
+              <IconAction
+                title="Vue trieuse"
+                onClick={() => setSorter((v) => !v)}
               >
-                <SlideSurface slide={outgoingSlide} showBuddy={false} />
-              </div>
-            ) : null}
-            <div
-              key={`in-${presentation.index}-${presentation.run}`}
-              className="presentation-frame presentation-frame-incoming"
-              data-transition={presentedSlide.transition}
-              data-direction={presentation.direction}
-            >
-              <SlideSurface
-                slide={presentedSlide}
-                presenting
-                showBuddy={false}
-                buildStep={presentation.buildStep}
-              />
+                <Grid3X3 />
+              </IconAction>
             </div>
-            <div
-              key={`buddy-${presentation.run}-${presentation.buildRun}`}
-              className="director-buddy"
-              data-transition={presentedSlide.transition}
-              data-direction={presentation.direction}
-              data-build={presentation.buildRun > 0 || undefined}
-            >
-              <Buddy
-                state={directorState}
-                ariaLabel={isAnimating ? 'Buddy met la scène en place.' : 'Buddy a terminé la scène.'}
-              />
-              <span className="director-line" />
+            <div className="filmstrip-items">
+              {deck.slides.map((item, index) => (
+                <button
+                  type="button"
+                  className="filmstrip-slide"
+                  data-active={item.id === slide.id}
+                  data-hidden={item.hidden}
+                  key={item.id}
+                  onClick={() => activate(item.id)}
+                  draggable
+                  onDragStart={(e) =>
+                    e.dataTransfer.setData('application/buddy-slide', item.id)
+                  }
+                  onDragOver={(e) => {
+                    if (
+                      e.dataTransfer.types.includes('application/buddy-slide')
+                    )
+                      e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const id = e.dataTransfer.getData(
+                      'application/buddy-slide',
+                    );
+                    if (id) moveSlide(id, index);
+                  }}
+                  aria-label={`Diapositive ${index + 1} : ${item.name}`}
+                  aria-current={item.id === slide.id ? 'true' : undefined}
+                >
+                  <span className="filmstrip-number">
+                    {index + 1}
+                    {item.hidden && <EyeOff size={12} />}
+                  </span>
+                  <span className="filmstrip-preview">
+                    <StudioSlide slide={item} aspectRatio={deck.aspectRatio} />
+                  </span>
+                  <span className="filmstrip-title">{item.name}</span>
+                </button>
+              ))}
             </div>
-          </div>
-
-          <div className="presentation-progress" aria-hidden="true">
-            <span
-              style={{
-                width: `${((presentation.index + 1) / deck.slides.length) * 100}%`,
-              }}
-            />
-          </div>
-
-          <div className="presentation-topbar">
-            <span className="presentation-count">
-              {String(presentation.index + 1).padStart(2, '0')} /{' '}
-              {String(deck.slides.length).padStart(2, '0')}
-            </span>
-            <div>
-              <Button
-                variant="secondary"
-                size="icon"
-                aria-label="Aide clavier"
-                title="Aide clavier (?)"
-                onClick={() => setShowHelp(true)}
+            <div className="filmstrip-footer">
+              <IconAction
+                title="Monter la diapositive"
+                disabled={activeIndex === 0}
+                onClick={() => moveSlide(slide.id, activeIndex - 1)}
               >
-                <HelpCircle />
-              </Button>
-              <Button
-                variant="secondary"
-                size="icon"
-                aria-label="Plein écran"
-                title="Plein écran (F)"
-                onClick={toggleFullscreen}
+                <ArrowUp />
+              </IconAction>
+              <IconAction
+                title="Descendre la diapositive"
+                disabled={activeIndex === deck.slides.length - 1}
+                onClick={() => moveSlide(slide.id, activeIndex + 1)}
               >
-                <Expand />
-              </Button>
-              <Button
-                variant="secondary"
-                size="icon"
-                aria-label="Quitter la présentation"
-                title="Quitter (Échap)"
-                onClick={closePresentation}
+                <ArrowDown />
+              </IconAction>
+              <IconAction
+                title="Dupliquer la diapositive"
+                onClick={duplicateSlide}
               >
-                <X />
-              </Button>
+                <Copy />
+              </IconAction>
+              <IconAction
+                title="Nouvelle diapositive"
+                onClick={() => addSlide()}
+              >
+                <Plus />
+              </IconAction>
             </div>
-          </div>
-
-          <nav className="presentation-controls" aria-label="Navigation de la présentation">
-            <Button
-              variant="secondary"
-              size="icon"
-              aria-label="Diapositive précédente"
-              disabled={presentation.index === 0}
-              onClick={() => stepPresentation(-1)}
-            >
-              <ArrowLeft />
-            </Button>
-            <div className="presentation-director-status">
-              <Buddy
-                state={directorState}
-                ariaLabel={isAnimating ? 'Buddy met la scène en place.' : 'Buddy attend la suite.'}
-              />
+          </aside>
+          <section
+            className="studio-canvas-panel"
+            aria-label="Éditeur de diapositive"
+          >
+            <div className="studio-arrange">
+              <span>
+                <MousePointer2 size={15} />
+                {selected.length
+                  ? `${selected.length} objet${selected.length > 1 ? 's' : ''}`
+                  : 'Sélection'}
+              </span>
               <div>
-                <span className="eyebrow-label">BUDDY DIRECTOR</span>
-                <strong>{isAnimating ? 'Mise en scène…' : 'À vous de parler.'}</strong>
+                <IconAction
+                  title="Aligner à gauche"
+                  disabled={!selected.length}
+                  onClick={() => align('left')}
+                >
+                  <AlignStartVertical />
+                </IconAction>
+                <IconAction
+                  title="Centrer horizontalement"
+                  disabled={!selected.length}
+                  onClick={() => align('center')}
+                >
+                  <AlignCenterVertical />
+                </IconAction>
+                <IconAction
+                  title="Aligner en haut"
+                  disabled={!selected.length}
+                  onClick={() => align('top')}
+                >
+                  <AlignStartHorizontal />
+                </IconAction>
+                <IconAction
+                  title="Centrer verticalement"
+                  disabled={!selected.length}
+                  onClick={() => align('middle')}
+                >
+                  <AlignCenterHorizontal />
+                </IconAction>
+                <IconAction
+                  title="Distribuer horizontalement"
+                  disabled={selected.length < 3}
+                  onClick={() => align('distribute')}
+                >
+                  <ArrowRight />
+                </IconAction>
+                <span className="ribbon-divider" />
+                <IconAction
+                  title="Grouper (⌘G)"
+                  disabled={selected.length < 2}
+                  onClick={() => groupSelection()}
+                >
+                  <Group />
+                </IconAction>
+                <IconAction
+                  title="Dégrouper (⇧⌘G)"
+                  disabled={!element?.groupId}
+                  onClick={() => groupSelection(true)}
+                >
+                  <Ungroup />
+                </IconAction>
+                <IconAction
+                  title="Dupliquer (⌘D)"
+                  onClick={() => duplicateObjects()}
+                >
+                  <Copy />
+                </IconAction>
+                <IconAction
+                  title="Supprimer la sélection"
+                  disabled={!selected.length && deck.slides.length <= 1}
+                  onClick={deleteSelection}
+                >
+                  <Trash2 />
+                </IconAction>
               </div>
             </div>
-            <Button
-              variant="secondary"
-              size="icon"
-              aria-label={isAnimating ? 'Terminer l’animation' : 'Diapositive suivante'}
-              disabled={!isAnimating && presentation.index === deck.slides.length - 1}
-              onClick={() => stepPresentation(1)}
-            >
-              {isAnimating ? <Pause /> : <ArrowRight />}
-            </Button>
-          </nav>
-
-          <p className="sr-only" aria-live="polite">
-            Diapositive {presentation.index + 1} sur {deck.slides.length}.{' '}
-            {presentedSlide.title.replace('\n', ' ')}
-          </p>
-
-          {blackout ? (
-            <button
-              type="button"
-              className="blackout-screen"
-              onClick={() => setBlackout(false)}
-              aria-label="Quitter l’écran noir"
-            >
-              <span>B pour reprendre</span>
-            </button>
-          ) : null}
-
-          {showHelp ? (
-            <div className="keyboard-help-backdrop">
-              <dialog
-                open
-                className="keyboard-help"
-                aria-labelledby="keyboard-help-title"
+            {sorter ? (
+              <div className="studio-sorter">
+                {deck.slides.map((item, index) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      activate(item.id);
+                      setSorter(false);
+                    }}
+                  >
+                    <StudioSlide slide={item} aspectRatio={deck.aspectRatio} />
+                    <span>
+                      {index + 1}. {item.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div
+                className="studio-canvas-scroll"
+                onDragOver={(e) => {
+                  if (e.dataTransfer.types.includes('Files'))
+                    e.preventDefault();
+                }}
+                onDrop={(e) => {
+                  if (e.dataTransfer.files.length) {
+                    e.preventDefault();
+                    void imageFiles(e.dataTransfer.files);
+                  }
+                }}
+                onPointerDown={(e) => {
+                  if (e.target === e.currentTarget) select([]);
+                }}
               >
-                <div className="keyboard-help-heading">
-                  <div>
-                    <span className="eyebrow-label">MODE SCÈNE</span>
-                    <h2 id="keyboard-help-title">Raccourcis de présentation</h2>
-                  </div>
-                  <Button variant="ghost" size="icon" aria-label="Fermer l’aide" onClick={() => setShowHelp(false)}>
-                    <X />
-                  </Button>
+                <div
+                  className="studio-canvas-mat"
+                  data-grid={grid}
+                  style={{
+                    width: `${zoom}%`,
+                    maxWidth: `${zoom === 100 ? 1120 : (1120 * zoom) / 100}px`,
+                  }}
+                >
+                  <StudioSlide
+                    slide={slide}
+                    aspectRatio={deck.aspectRatio}
+                    editable
+                    selectedIds={selected}
+                    onSelect={selectElement}
+                    onTransformStart={() => {
+                      beginEdit();
+                      dragSnapshot.current = copy(
+                        deckRef.current.slides.find(
+                          (s) => s.id === activeRef.current,
+                        )!.elements,
+                      );
+                    }}
+                    onTransform={transform}
+                    onTransformEnd={endEdit}
+                    onTextChange={(id, text) => patchElement(id, { text })}
+                  />
                 </div>
-                <dl>
-                  <div><dt>Espace · →</dt><dd>Terminer l’animation, puis avancer</dd></div>
-                  <div><dt>←</dt><dd>Revenir à la scène précédente</dd></div>
-                  <div><dt>B</dt><dd>Afficher ou quitter l’écran noir</dd></div>
-                  <div><dt>F</dt><dd>Basculer en plein écran</dd></div>
-                  <div><dt>Échap</dt><dd>Revenir à l’éditeur</dd></div>
-                </dl>
-              </dialog>
+              </div>
+            )}
+            <div className="studio-canvas-bottom">
+              <span>
+                {activeIndex + 1} / {deck.slides.length} · {deck.aspectRatio}
+              </span>
+              <div>
+                <Button
+                  variant={grid ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setGrid((v) => !v)}
+                >
+                  <Grid3X3 />
+                  Grille
+                </Button>
+                <Button
+                  variant={snap ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setSnap((v) => !v)}
+                >
+                  Magnétisme
+                </Button>
+                <IconAction
+                  title="Zoom arrière"
+                  onClick={() => setZoom((z) => Math.max(50, z - 10))}
+                >
+                  <ZoomOut />
+                </IconAction>
+                <button className="zoom-reset" onClick={() => setZoom(100)}>
+                  {zoom}%
+                </button>
+                <IconAction
+                  title="Zoom avant"
+                  onClick={() => setZoom((z) => Math.min(200, z + 10))}
+                >
+                  <ZoomIn />
+                </IconAction>
+              </div>
             </div>
-          ) : null}
-        </section>
-      ) : null}
+            <div className="studio-notes">
+              <StickyNote size={16} />
+              <Textarea
+                aria-label="Notes de l’orateur"
+                value={slide.notes}
+                maxLength={10000}
+                rows={2}
+                placeholder="Notes de l’orateur — visibles uniquement dans la régie."
+                onFocus={beginEdit}
+                onBlur={endEdit}
+                onChange={(e) => patchSlide({ notes: e.target.value })}
+              />
+            </div>
+          </section>
+          <aside className="studio-inspector" aria-label="Inspecteur">
+            <Tabs value={inspector} onValueChange={setInspector}>
+              <TabsList variant="line" className="inspector-nav">
+                <TabsTrigger value="format">Format</TabsTrigger>
+                <TabsTrigger value="animate">Animer</TabsTrigger>
+                <TabsTrigger value="layers">Calques</TabsTrigger>
+              </TabsList>
+              <TabsContent value="format">
+                <div className="inspector-heading">
+                  <strong>
+                    {element ? elementLabels[element.kind] : 'Diapositive'}
+                  </strong>
+                  {element && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => select([])}
+                    >
+                      Diapo
+                    </Button>
+                  )}
+                </div>
+                {element ? (
+                  <StudioInspector
+                    key={element.id}
+                    element={element}
+                    onChange={(patch) => patchElement(element.id, patch)}
+                    onBegin={beginEdit}
+                    onEnd={endEdit}
+                    onReplaceImage={() => {
+                      replaceImage.current = element.id;
+                      imageInput.current?.click();
+                    }}
+                  />
+                ) : (
+                  <>
+                    <section className="inspector-block">
+                      <label className="studio-field" htmlFor="slide-name">
+                        Nom
+                        <Input
+                          id="slide-name"
+                          value={slide.name}
+                          maxLength={120}
+                          onFocus={beginEdit}
+                          onBlur={endEdit}
+                          onChange={(e) => patchSlide({ name: e.target.value })}
+                        />
+                      </label>
+                      <Choice
+                        label="Format du document"
+                        value={deck.aspectRatio}
+                        options={aspectRatioLabels}
+                        onChange={(aspectRatio) =>
+                          commit((value) => ({
+                            ...value,
+                            aspectRatio: aspectRatio as Deck['aspectRatio'],
+                          }))
+                        }
+                      />
+                    </section>
+                    <section className="inspector-block">
+                      <h3>Thème du document</h3>
+                      <div className="theme-gallery">
+                        {Object.entries(themeLabels).map(([theme, label]) => (
+                          <button
+                            key={theme}
+                            type="button"
+                            data-theme={theme}
+                            data-active={deck.theme === theme}
+                            onClick={() => applyTheme(theme as DeckTheme)}
+                          >
+                            <span>Aa</span>
+                            <strong>{label}</strong>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="field-help">
+                        Applique des couleurs contrastées et la police à toutes
+                        les diapositives.
+                      </p>
+                    </section>
+                    <section className="inspector-block">
+                      <h3>Arrière-plan</h3>
+                      <div className="tone-swatches">
+                        {(['paper', 'mist', 'ink'] as const).map((tone) => (
+                          <button
+                            key={tone}
+                            type="button"
+                            data-tone={tone}
+                            data-active={slide.tone === tone}
+                            onClick={() =>
+                              patchSlide({
+                                tone,
+                                elements: slide.elements.map((e) =>
+                                  e.kind === 'text'
+                                    ? {
+                                        ...e,
+                                        style: {
+                                          ...e.style,
+                                          color:
+                                            tone === 'ink'
+                                              ? '#ffffff'
+                                              : '#171717',
+                                        },
+                                      }
+                                    : e.kind === 'chart'
+                                      ? {
+                                          ...e,
+                                          datasets: e.datasets.map(
+                                            (dataset, index) => ({
+                                              ...dataset,
+                                              color: (tone === 'ink'
+                                                ? [
+                                                    '#eeeeee',
+                                                    '#bbbbbb',
+                                                    '#888888',
+                                                    '#666666',
+                                                  ]
+                                                : [
+                                                    '#171717',
+                                                    '#555555',
+                                                    '#888888',
+                                                    '#bbbbbb',
+                                                  ])[index % 4],
+                                            }),
+                                          ),
+                                        }
+                                      : e.kind === 'shape'
+                                        ? {
+                                            ...e,
+                                            stroke:
+                                              tone === 'ink'
+                                                ? '#eeeeee'
+                                                : '#171717',
+                                          }
+                                        : e,
+                                ),
+                              })
+                            }
+                          >
+                            {tone === 'paper'
+                              ? 'Blanc'
+                              : tone === 'mist'
+                                ? 'Gris'
+                                : 'Noir'}
+                          </button>
+                        ))}
+                      </div>
+                      <ToggleField
+                        label="Masquer dans le diaporama"
+                        checked={slide.hidden}
+                        onChange={(hidden) => patchSlide({ hidden })}
+                      />
+                    </section>
+                    <section className="inspector-block">
+                      <Buddy caption="Sélectionnez un objet pour le modifier." />
+                    </section>
+                  </>
+                )}
+              </TabsContent>
+              <TabsContent value="animate">
+                <section className="inspector-block buddy-motion-card">
+                  <Buddy
+                    state="work"
+                    caption="Je m’occupe de la mise en scène."
+                  />
+                  <Button onClick={() => start(activeIndex)} variant="outline">
+                    <Play />
+                    Voir Buddy agir
+                  </Button>
+                </section>
+                <section className="inspector-block">
+                  <h3>Transition de la diapositive</h3>
+                  <Choice
+                    label="Action de Buddy"
+                    value={slide.transition}
+                    options={transitionLabels}
+                    onChange={(transition) =>
+                      patchSlide({
+                        transition: transition as Slide['transition'],
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Durée (secondes)"
+                    value={slide.transitionDuration / 1000}
+                    min={0.4}
+                    max={5}
+                    step={0.1}
+                    onBegin={beginEdit}
+                    onEnd={endEdit}
+                    onChange={(v) =>
+                      patchSlide({ transitionDuration: v * 1000 })
+                    }
+                  />
+                  <ToggleField
+                    label="Avancement automatique"
+                    checked={slide.autoAdvance !== null}
+                    onChange={(v) =>
+                      patchSlide({ autoAdvance: v ? 5000 : null })
+                    }
+                  />
+                  {slide.autoAdvance !== null && (
+                    <NumberField
+                      label="Attente (secondes)"
+                      value={slide.autoAdvance / 1000}
+                      min={1}
+                      max={120}
+                      onChange={(v) => patchSlide({ autoAdvance: v * 1000 })}
+                    />
+                  )}
+                </section>
+                {element && (
+                  <section className="inspector-block">
+                    <h3>{elementLabels[element.kind]} sélectionné</h3>
+                    <Choice
+                      label="Animation"
+                      value={element.animation}
+                      options={animationLabels}
+                      onChange={(animation) =>
+                        patchElement(element.id, {
+                          animation: animation as SlideElement['animation'],
+                        })
+                      }
+                    />
+                    <Choice
+                      label="Déclenchement"
+                      value={element.animationTrigger}
+                      options={animationTriggerLabels}
+                      onChange={(animationTrigger) =>
+                        patchElement(element.id, {
+                          animationTrigger:
+                            animationTrigger as SlideElement['animationTrigger'],
+                        })
+                      }
+                    />
+                    <div className="inspector-row">
+                      <NumberField
+                        label="Ordre"
+                        value={element.animationOrder}
+                        min={0}
+                        max={100}
+                        onChange={(animationOrder) =>
+                          patchElement(element.id, { animationOrder })
+                        }
+                      />
+                      <NumberField
+                        label="Durée (s)"
+                        value={element.animationDuration / 1000}
+                        min={0.2}
+                        max={20}
+                        step={0.1}
+                        onChange={(v) =>
+                          patchElement(element.id, {
+                            animationDuration: v * 1000,
+                          })
+                        }
+                      />
+                    </div>
+                  </section>
+                )}
+                <section className="inspector-block">
+                  <h3>Ordre des animations</h3>
+                  {slide.elements
+                    .filter((e) => e.animation !== 'none')
+                    .sort((a, b) => a.animationOrder - b.animationOrder)
+                    .map((e, i) => (
+                      <button
+                        className="animation-row"
+                        data-active={selected.includes(e.id)}
+                        key={e.id}
+                        onClick={() => select([e.id])}
+                      >
+                        <span>{i + 1}</span>
+                        <div>
+                          <strong>{animationLabels[e.animation]}</strong>
+                          <small>
+                            {e.kind === 'text'
+                              ? e.text.slice(0, 38)
+                              : elementLabels[e.kind]}{' '}
+                            · {animationTriggerLabels[e.animationTrigger]}
+                          </small>
+                        </div>
+                      </button>
+                    ))}
+                  {!slide.elements.some((e) => e.animation !== 'none') && (
+                    <p className="field-help">
+                      Sélectionnez un objet puis choisissez une action de Buddy.
+                    </p>
+                  )}
+                </section>
+              </TabsContent>
+              <TabsContent value="layers">
+                <div className="inspector-heading">
+                  <strong>Objets de la diapositive</strong>
+                  <Layers size={16} />
+                </div>
+                <div className="layer-list">
+                  {[...slide.elements]
+                    .sort((a, b) => b.z - a.z)
+                    .map((e) => (
+                      <div
+                        key={e.id}
+                        className="layer-row"
+                        data-active={selected.includes(e.id)}
+                      >
+                        <button
+                          onClick={(event) =>
+                            selectElement(e.id, event.shiftKey)
+                          }
+                        >
+                          <span>{elementLabels[e.kind]}</span>
+                          <small>
+                            {e.kind === 'text'
+                              ? e.text.slice(0, 35)
+                              : e.kind === 'image'
+                                ? e.alt
+                                : e.groupId
+                                  ? 'Groupe'
+                                  : `Calque ${e.z + 1}`}
+                          </small>
+                        </button>
+                        <IconAction
+                          title={
+                            e.hidden ? 'Afficher l’objet' : 'Masquer l’objet'
+                          }
+                          onClick={() =>
+                            patchElement(e.id, { hidden: !e.hidden })
+                          }
+                        >
+                          {e.hidden ? <EyeOff /> : <Eye />}
+                        </IconAction>
+                        <IconAction
+                          title={e.locked ? 'Déverrouiller' : 'Verrouiller'}
+                          onClick={() =>
+                            patchElement(e.id, { locked: !e.locked })
+                          }
+                        >
+                          {e.locked ? <Lock /> : <Unlock />}
+                        </IconAction>
+                      </div>
+                    ))}
+                </div>
+                <section className="inspector-block">
+                  <Button
+                    variant="outline"
+                    disabled={!element}
+                    onClick={() => layer(1)}
+                  >
+                    <ArrowUp />
+                    Avancer d’un plan
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={!element}
+                    onClick={() => layer(-1)}
+                  >
+                    <ArrowDown />
+                    Reculer d’un plan
+                  </Button>
+                </section>
+              </TabsContent>
+            </Tabs>
+          </aside>
+        </div>
+        <output className="studio-status" aria-live="polite">
+          {status}
+          <span>
+            ⇧ clic : sélection multiple · Glissez vos images sur la diapositive
+          </span>
+        </output>
+      </div>
+      <input
+        ref={imageInput}
+        className="sr-only"
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        multiple
+        aria-label="Importer des images"
+        onChange={(e) => {
+          if (e.target.files)
+            void imageFiles(e.target.files, replaceImage.current);
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={importInput}
+        className="sr-only"
+        type="file"
+        accept=".json,.buddydeck,.pptx,.odp"
+        aria-label="Importer une présentation"
+        onChange={importDeck}
+      />
+      <Dialog
+        open={library !== null}
+        onOpenChange={(open) => !open && setLibrary(null)}
+      >
+        <DialogContent className="deck-library">
+          <DialogTitle>Mes présentations</DialogTitle>
+          <DialogDescription>
+            Ces documents sont conservés dans ce navigateur. Exportez un fichier
+            Buddy pour les transférer.
+          </DialogDescription>
+          <Button
+            onClick={() => {
+              void saveLocalDeck(deckRef.current)
+                .then(() => {
+                  const next = {
+                    ...copy(initialDeck),
+                    id: createId('deck'),
+                    title: 'Nouvelle présentation',
+                  };
+                  commit(() => next);
+                  activate(next.slides[0].id);
+                  setLibrary(null);
+                })
+                .catch(() =>
+                  setStatus(
+                    'Exportez votre présentation avant de changer de document : le stockage local est indisponible.',
+                  ),
+                );
+            }}
+          >
+            <Plus />
+            Nouvelle présentation
+          </Button>
+          {library?.map((item) => (
+            <button
+              key={item.id}
+              className="library-item"
+              onClick={() => {
+                void saveLocalDeck(deckRef.current)
+                  .then(() => {
+                    commit(() => item);
+                    activate(item.slides[0].id);
+                    setLibrary(null);
+                  })
+                  .catch(() =>
+                    setStatus(
+                      'Exportez votre présentation avant de changer de document : le stockage local est indisponible.',
+                    ),
+                  );
+              }}
+            >
+              <strong>{item.title}</strong>
+              <span>{item.slides.length} diapositives</span>
+            </button>
+          ))}
+        </DialogContent>
+      </Dialog>
+      {playback && !presenter && (
+        <StudioPlayer
+          deck={deck}
+          state={playback}
+          onNext={next}
+          onPrevious={previous}
+          onClose={close}
+          onBusy={onBusy}
+        />
+      )}
+      {playback && presenter && (
+        <PresenterConsole
+          deck={deck}
+          currentIndex={playback.index}
+          buildStep={playback.step}
+          elapsedSeconds={elapsedSeconds}
+          onClose={close}
+          onNext={next}
+          onPrevious={previous}
+          onGoTo={goTo}
+          onResetTimer={() => {
+            presentationStartedAt.current = Date.now();
+            setElapsedSeconds(0);
+          }}
+        />
+      )}
+      {printing && (
+        <div className="print-deck">
+          {deck.slides
+            .filter((s) => !s.hidden)
+            .map((s) => (
+              <div className="print-slide" key={s.id}>
+                <StudioSlide slide={s} aspectRatio={deck.aspectRatio} />
+              </div>
+            ))}
+        </div>
+      )}
     </main>
   );
 }
