@@ -750,7 +750,13 @@
   line-height: inherit;
 }
 .studio-type-character {
-  white-space: pre-wrap;
+  display: inline-block;
+  white-space: pre;
+}
+.studio-type-word {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
 }
 .studio-shape {
   width: 100%;
@@ -988,60 +994,13 @@
 .player-incoming {
   z-index: 2;
 }
-.buddy-actor {
+.buddy-motion-layer {
   position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 10000;
   pointer-events: none;
-  color: #111;
-  opacity: 1;
-  transform: translate(-35%, -30%);
-  transition: opacity 0.2s;
-}
-.buddy-actor .buddy {
-  margin: 0;
-  background: #fff;
-  color: #111;
-  padding: 0.5cqw 0.7cqw;
-  border: 1px solid #111;
-  border-radius: 0.7cqw;
-  box-shadow: 0 0.25cqw 0.8cqw #0002;
-}
-.buddy-actor .buddy pre {
-  font: 1.5cqw / 1.05 var(--font-mono);
-  margin: 0;
-}
-.buddy-actor[data-active='false'] {
-  opacity: 0;
-}
-.buddy-tool {
-  position: absolute;
-  left: -2cqw;
-  top: -0.9cqw;
-  transform: rotate(-25deg);
-  background: #fff;
-  color: #111;
-  border-radius: 50%;
-  padding: 0.2cqw;
-}
-.buddy-tool svg {
-  width: 2.5cqw;
-  height: 2.5cqw;
-  stroke-width: 1.7;
-}
-.buddy-curtain-edge {
-  position: absolute;
-  inset-block: 0;
-  width: 0.4cqw;
-  transform: translateX(-100%);
-  background: #191919;
-  z-index: 500;
-  box-shadow: 0.2cqw 0 1.4cqw #0003;
-}
-.buddy-underline {
-  position: absolute;
-  height: 0.3cqw;
-  background: currentColor;
-  z-index: 500;
 }
 .laser-pointer {
   width: 14px;
@@ -1290,3 +1249,11 @@
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* Stable glyph slots keep the measured pen targets independent of letter motion. */
+.studio-glyph-slot { display: inline-block; white-space: pre; }
+.studio-slide-presenting .studio-element[data-motion-running='true']:is([data-animation='bounce'],[data-animation='magnet'],[data-animation='domino']) :is(.studio-text-content,.studio-code-block,.studio-code-block pre) { overflow: visible; }
+.studio-type-character { backface-visibility: hidden; }
+.motion-description { margin: 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }
+
+.studio-slide-presenting .studio-element[data-motion-running='true'][data-animation-mode='emphasis'] :is(.studio-text-content,.studio-code-block,.studio-code-block pre) { overflow: visible; }

@@ -10,14 +10,20 @@ export const STUDIO_SCHEMA_VERSION = 2 as const;
 export type DeckTheme = 'studio' | 'editorial' | 'terminal';
 export type AspectRatio = '16:9' | '4:3';
 export type SlideTone = 'paper' | 'mist' | 'ink';
-export type Transition = 'cut' | 'push' | 'wipe' | 'lift' | 'dissolve' | 'zoom';
+export type Transition = 'cut' | 'push' | 'wipe' | 'lift' | 'dissolve' | 'zoom'
+  | 'pull' | 'curtain' | 'turn' | 'drop' | 'roll' | 'zip';
 export type ElementAnimation =
   | 'none'
   | 'type'
   | 'reveal'
   | 'rise'
   | 'emphasis'
-  | 'exit';
+  | 'exit'
+  | 'stamp' | 'bounce' | 'magnet' | 'ribbon' | 'spotlight' | 'domino' | 'inflate'
+  | 'highlight' | 'circle' | 'frame' | 'doubleUnderline' | 'waveUnderline'
+  | 'brackets' | 'pointer' | 'focus' | 'tint' | 'glow' | 'pulse' | 'wobble' | 'hop' | 'stretch';
+export type AnimationMode = 'entrance' | 'exit' | 'emphasis';
+export type AnimationScope = 'character' | 'word' | 'text' | 'block';
 export type AnimationTrigger = 'click' | 'with' | 'after';
 export type SlideElementKind =
   | 'text'
@@ -66,6 +72,8 @@ export interface BaseSlideElement {
   locked: boolean;
   hidden: boolean;
   animation: ElementAnimation;
+  animationMode?: AnimationMode;
+  animationScope?: AnimationScope;
   animationOrder: number;
   animationTrigger: AnimationTrigger;
   animationDuration: number;
@@ -209,7 +217,13 @@ export const transitionLabels: Record<Transition, string> = {
   wipe: 'Buddy balaie',
   lift: 'Buddy soulève',
   dissolve: 'Buddy dissout',
-  zoom: 'Buddy zoome',
+  zoom: 'Buddy agrandit',
+  pull: 'Buddy tire',
+  curtain: 'Buddy ouvre le rideau',
+  turn: 'Buddy tourne la page',
+  drop: 'Buddy amortit la chute',
+  roll: 'Buddy déroule',
+  zip: 'Buddy ouvre le zip',
 };
 
 export const animationLabels: Record<ElementAnimation, string> = {
@@ -218,8 +232,86 @@ export const animationLabels: Record<ElementAnimation, string> = {
   reveal: 'Buddy dévoile',
   rise: 'Buddy fait monter',
   emphasis: 'Buddy souligne',
-  exit: 'Buddy fait sortir',
+  exit: 'Buddy efface',
+  stamp: 'Buddy tamponne',
+  bounce: 'Buddy fait rebondir',
+  magnet: 'Buddy aimante',
+  ribbon: 'Buddy déplie le ruban',
+  spotlight: 'Buddy éclaire',
+  domino: 'Buddy lance les dominos',
+  inflate: 'Buddy gonfle',
+  highlight: 'Surligneur', circle: 'Cercle', frame: 'Encadrement',
+  doubleUnderline: 'Double soulignement', waveUnderline: 'Soulignement ondulé',
+  brackets: 'Crochets', pointer: 'Flèche', focus: 'Projecteur',
+  tint: 'Couleur peinte', glow: 'Lueur', pulse: 'Pulsation',
+  wobble: 'Balancement', hop: 'Petit saut', stretch: 'Étirement',
 };
+
+export const emphasisAnimations: ElementAnimation[] = ['emphasis','highlight','circle','frame','doubleUnderline','waveUnderline','brackets','pointer','focus','tint','glow','pulse','wobble','hop','stretch'];
+export const animationModeLabels: Record<AnimationMode,string> = {entrance:'Apparition',exit:'Disparition',emphasis:'Mise en évidence'};
+export const animationScopeLabels: Record<AnimationScope,string> = {character:'Caractère',word:'Mot',text:'Texte entier',block:'Bloc complet'};
+export function animationModeFor(element: Pick<BaseSlideElement,'animation'|'animationMode'>): AnimationMode {
+  return emphasisAnimations.includes(element.animation)?'emphasis':element.animation==='exit'?'exit':element.animationMode||'entrance';
+}
+export function animationOptions(mode: AnimationMode) {
+  return Object.fromEntries(Object.entries(animationLabels).filter(([key])=>key==='none'||(mode==='emphasis'?emphasisAnimations.includes(key as ElementAnimation):!emphasisAnimations.includes(key as ElementAnimation)&&key!=='exit')));
+}
+
+export const transitionDescriptions: Record<Transition, string> = {
+  cut: 'Un coup de clap précis, puis la nouvelle scène.',
+  push: 'Buddy prend appui et pousse la scène de tout son corps.',
+  wipe: 'Le rouleau découvre la scène au fil de son passage.',
+  lift: 'Un effort vertical pour soulever la scène.',
+  dissolve: 'Une inspiration, puis un souffle qui transforme la scène.',
+  zoom: 'Buddy écarte une ouverture circulaire.',
+  pull: 'Une ventouse et une corde pour tirer la nouvelle slide.',
+  curtain: 'Deux pans s’écartent depuis le centre.',
+  turn: 'Buddy accroche le bord et tourne la page en perspective.',
+  drop: 'La scène descend et Buddy amortit son arrivée.',
+  roll: 'Une scène s’enroule autour d’une barre qui remonte.',
+  zip: 'Buddy ouvre une fermeture éclair en diagonale.',
+};
+
+export const animationDescriptions: Record<ElementAnimation, string> = {
+  none: 'Le contenu reste en place.',
+  type: 'Un crayon trace les caractères et se lève entre les lignes.',
+  reveal: 'Le rouleau fait apparaître le contenu sous son passage.',
+  rise: 'Buddy porte le contenu et le dépose doucement.',
+  emphasis: 'Un trait dessiné sous le message, qui reste visible.',
+  exit: 'Une gomme retire le contenu de droite à gauche.',
+  stamp: 'Un tampon imprime le texte avec un petit rebond amorti.',
+  bounce: 'Une impulsion fait bondir les lettres en cascade.',
+  magnet: 'L’aimant rassemble les lettres et les remet en place.',
+  ribbon: 'Buddy déroule un ruban de texte verticalement.',
+  spotlight: 'Une lampe révèle les lettres et les rend nettes.',
+  domino: 'Buddy pousse la première lettre : la vague redresse les suivantes.',
+  inflate: 'Buddy comprime sa pompe et gonfle le texte.',
+  highlight: 'Buddy passe un surligneur translucide sur le texte.',
+  circle: 'Buddy trace un cercle autour du contenu.',
+  frame: 'Buddy dessine un cadre autour du contenu.',
+  doubleUnderline: 'Buddy dessine deux traits sous le texte.',
+  waveUnderline: 'Buddy trace une ligne ondulée sous le texte.',
+  brackets: 'Buddy place deux crochets autour du contenu.',
+  pointer: 'Buddy dessine une flèche qui désigne le contenu.',
+  focus: 'Buddy dirige une lampe sur le contenu, qui reste visible.',
+  tint: 'Buddy peint une couleur d’accent sur les lettres.',
+  glow: 'Buddy fait passer une lueur sur le contenu.',
+  pulse: 'Une pression de Buddy fait gonfler puis relâcher le contenu.',
+  wobble: 'Buddy incline le contenu puis le remet droit.',
+  hop: 'Buddy donne une impulsion par-dessous, puis réceptionne le contenu.',
+  stretch: 'Buddy tire le contenu puis relâche son élasticité.',
+};
+
+export const transitionDurations: Record<Transition, number> = {
+  cut:1100, push:1900, wipe:2000, lift:2100, dissolve:2100, zoom:2000,
+  pull:2200, curtain:2300, turn:2400, drop:2200, roll:2400, zip:2400,
+};
+export function animationDurationFor(kind: ElementAnimation, content = '', scope: AnimationScope = 'word') {
+  const segmenter = new Intl.Segmenter('fr', {granularity:scope==='character'?'grapheme':'word'});
+  const count = scope==='text'||scope==='block'?1:Array.from(segmenter.segment(content)).filter(part=>part.segment.trim()).length;
+  const base=emphasisAnimations.includes(kind)?2600:kind==='none'?1200:2400;
+  return Math.min(60000, Math.max(base, Math.max(1,count)*(scope==='character'?680:1100)+700));
+}
 
 export const animationTriggerLabels: Record<AnimationTrigger, string> = {
   click: 'Au clic',
@@ -292,6 +384,8 @@ function baseElement<K extends SlideElementKind>(kind: K) {
     locked: false,
     hidden: false,
     animation: 'none' as ElementAnimation,
+    animationMode: 'entrance' as AnimationMode,
+    animationScope: (kind==='text'||kind==='code'?'word':'block') as AnimationScope,
     animationOrder: 0,
     animationTrigger: 'click' as AnimationTrigger,
     animationDuration: 1200,
@@ -701,22 +795,8 @@ function oneOf<T extends string>(
 const THEMES = ['studio', 'editorial', 'terminal'] as const;
 const ASPECT_RATIOS = ['16:9', '4:3'] as const;
 const TONES = ['paper', 'mist', 'ink'] as const;
-const TRANSITIONS = [
-  'cut',
-  'push',
-  'wipe',
-  'lift',
-  'dissolve',
-  'zoom',
-] as const;
-const ANIMATIONS = [
-  'none',
-  'type',
-  'reveal',
-  'rise',
-  'emphasis',
-  'exit',
-] as const;
+const TRANSITIONS = Object.keys(transitionLabels) as Transition[];
+const ANIMATIONS = Object.keys(animationLabels) as ElementAnimation[];
 const TRIGGERS = ['click', 'with', 'after'] as const;
 const FONT_STYLES = ['normal', 'italic'] as const;
 const TEXT_DECORATIONS = ['none', 'underline', 'line-through'] as const;
@@ -791,6 +871,8 @@ function readBase(
     typeof value.locked !== 'boolean' ||
     typeof value.hidden !== 'boolean' ||
     !oneOf(value.animation, ANIMATIONS) ||
+    (value.animationMode !== undefined && !oneOf(value.animationMode, ['entrance','exit','emphasis'] as const)) ||
+    (value.animationScope !== undefined && !oneOf(value.animationScope, ['character','word','text','block'] as const)) ||
     !integer(value.animationOrder, 0, 10_000) ||
     !oneOf(value.animationTrigger, TRIGGERS) ||
     !finiteNumber(value.animationDuration, 0, 60_000)
@@ -812,6 +894,8 @@ function readBase(
     locked: value.locked,
     hidden: value.hidden,
     animation: value.animation,
+    animationMode: animationModeFor({animation:value.animation,animationMode:value.animationMode as AnimationMode|undefined}),
+    animationScope: (value.animationScope as AnimationScope|undefined) ?? (expectedKind==='text'||expectedKind==='code'?(value.animation==='type'||value.animation==='domino'?'character':'word'):'block'),
     animationOrder: value.animationOrder,
     animationTrigger: value.animationTrigger,
     animationDuration: value.animationDuration,
@@ -1393,6 +1477,8 @@ function textElement(
     locked: false,
     hidden: false,
     animation,
+    animationMode: animationModeFor({animation}),
+    animationScope: animation==='type'?'character':'word',
     animationOrder,
     animationTrigger,
     animationDuration: animation === 'type' ? 2_200 : 1200,
@@ -1422,6 +1508,8 @@ function buddyElement(
     locked: false,
     hidden: false,
     animation: 'rise',
+    animationMode: 'entrance',
+    animationScope: 'block',
     animationOrder: 0,
     animationTrigger: 'with',
     animationDuration: 720,

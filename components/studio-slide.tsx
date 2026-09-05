@@ -22,6 +22,7 @@ import plaintext from 'highlight.js/lib/languages/plaintext';
 import { StudioChart } from '@/components/studio-chart';
 
 import { Buddy } from '@/components/buddy';
+import { initialElementVisual, motionMode, needsGlyphLayout, graphemes, normalizeText } from '@/lib/buddy-motion.js';
 import type {
   AspectRatio,
   BuddyElement,
@@ -119,25 +120,21 @@ function motionStyle(
 
   // The editor always shows the final authored state. Presentation motion is
   // driven exclusively by the parent's RAF timeline.
-  if (
-    !presenting ||
-    element.animation === 'none' ||
-    (element.animation === 'type' &&
-      (element.kind === 'text' || element.kind === 'code'))
-  ) {
-    return result;
-  }
-  if (element.animation === 'reveal' || element.animation === 'type') {
-    result.clipPath = `inset(0 ${(1 - progress) * 100}% 0 0)`;
-  } else if (element.animation === 'rise') {
-    result.opacity = element.opacity * progress;
-    result.transform = `${rotation} translateY(${((1 - progress) * 800) / element.h}%)`;
-  } else if (element.animation === 'emphasis' && element.kind !== 'buddy') {
-    result.transform = `${rotation} scale(${1 + Math.sin(Math.PI * progress) * 0.05})`;
-  } else if (element.animation === 'exit') {
-    result.clipPath = `inset(0 ${progress * 100}% 0 0)`;
-  }
+  if (presenting) Object.assign(result, initialElementVisual(element, progress));
   return result;
+}
+
+function typingText(text: string, hidden = false) {
+  text = normalizeText(text);
+  let offset = 0;
+  return (text.match(/\n|[^\S\n]+|[^\s]+/gu) ?? []).map((token, ti) => {
+    if (token === '\n') { offset++; return <br key={ti} />; }
+    const nodes = graphemes(token).map((character) => {
+      const index = offset++;
+      return <span key={index} className="studio-glyph-slot" data-char-index={index} aria-hidden="true"><span data-glyph-ink className="studio-type-character" style={{visibility:hidden?'hidden':'visible'}}>{character}</span></span>;
+    });
+    return /\s/u.test(token) ? <span key={ti}>{nodes}</span> : <span className="studio-type-word" key={ti}>{nodes}</span>;
+  });
 }
 
 function TextContent({
@@ -149,11 +146,8 @@ function TextContent({
   presenting: boolean;
   progress: number;
 }) {
-  const characters = useMemo(() => Array.from(element.text), [element.text]);
-  const typing = presenting && element.animation === 'type';
-  const visibleCount = typing
-    ? Math.floor(progress * characters.length)
-    : characters.length;
+  const typing = presenting && needsGlyphLayout(element);
+
   const style: CSSProperties = {
     color: element.style.color,
     backgroundColor: element.style.background,
@@ -177,21 +171,7 @@ function TextContent({
       aria-label={typing ? element.text : undefined}
     >
       {typing
-        ? characters.map((character, index) => {
-            const visible = index < visibleCount;
-            return (
-              <span
-                key={`${index}-${character}`}
-                className="studio-type-character"
-                data-char-index={index}
-                data-visible={visible ? 'true' : 'false'}
-                aria-hidden="true"
-                style={{ visibility: visible ? 'visible' : 'hidden' }}
-              >
-                {character}
-              </span>
-            );
-          })
+        ? typingText(element.text, motionMode(element)==='entrance'?progress<=0:motionMode(element)==='exit'&&progress>=1)
         : element.text}
     </p>
   );
@@ -316,7 +296,7 @@ function CodeContent({
 }) {
   const lines = useMemo(
     () =>
-      element.code.split('\n').map((line) => {
+      normalizeText(element.code).split('\n').map((line) => {
         if (!line) return ' ';
         if (element.language && hljs.getLanguage(element.language)) {
           return hljs.highlight(line, {
@@ -345,34 +325,26 @@ function CodeContent({
                   {index + 1}
                 </span>
               ) : null}
-              {presenting && element.animation === 'type' ? (
+              {presenting && needsGlyphLayout(element) ? (
                 <span>
-                  {Array.from(element.code.split('\n')[index] || ' ').map(
+                  {graphemes(normalizeText(element.code).split('\n')[index] || ' ').map(
                     (character, ci) => {
                       const offset =
-                        element.code
+                        normalizeText(element.code)
                           .split('\n')
                           .slice(0, index)
                           .reduce(
                             (total, text) =>
-                              total + Array.from(text).length + 1,
+                              total + graphemes(text).length + 1,
                             0,
                           ) + ci;
                       return (
                         <span
                           key={ci}
                           data-char-index={offset}
-                          style={{
-                            visibility:
-                              offset <
-                              Math.floor(
-                                progress * Array.from(element.code).length,
-                              )
-                                ? 'visible'
-                                : 'hidden',
-                          }}
+                          className="studio-glyph-slot"
                         >
-                          {character}
+                          <span data-glyph-ink className="studio-type-character" style={{visibility:(motionMode(element)==='entrance'?progress<=0:motionMode(element)==='exit'&&progress>=1)?'hidden':'visible'}}>{character}</span>
                         </span>
                       );
                     },
@@ -697,6 +669,9 @@ export function StudioSlide({
               data-element-id={element.id}
               data-kind={element.kind}
               data-animation={element.animation}
+              data-animation-mode={motionMode(element)}
+              data-animation-scope={element.animationScope || 'word'}
+              data-motion-running={presenting && elementProgress > 0 && elementProgress < 1 ? 'true' : 'false'}
               data-visible={visible ? 'true' : 'false'}
               data-active={active ? 'true' : 'false'}
               aria-hidden={presenting && !visible ? true : undefined}

@@ -15,14 +15,45 @@ outils courants d’un éditeur de présentations, pas l’intégralité des sui
 | Code         | Dix langages proposés, coloration syntaxique, numéros de lignes, thème clair/sombre ; le code n’est jamais exécuté                                                                                                      |
 | Données      | Cellules de tableau modifiables, ajout/retrait de lignes/colonnes ; barres, courbes et secteurs à plusieurs séries                                                                                                      |
 | Thèmes       | Studio clair, éditorial, terminal ; fonds blanc/gris/noir et couleurs de texte adaptées                                                                                                                                 |
-| Buddy        | Six transitions de scène ; écriture, dévoilement, apport, accentuation et effacement des objets ; durée, ordre, déclenchement au clic / avec / après le précédent                                                       |
+| Buddy        | Douze transitions de scène ; apparition et disparition ; quinze mises en évidence ; portées caractère, mot, texte entier et bloc ; durée, ordre, déclenchement au clic / avec / après                                                       |
 | Présentation | Navigation par étapes, plein écran, écran noir, pointeur, avance automatique, réduction des mouvements selon préférence système                                                                                         |
 | Régie        | Fenêtre audience séparée, notes privées, prochaine diapositive, chronomètre, saut vers une diapositive                                                                                                                  |
 | Fichiers     | Buddy JSON, HTML autonome avec Buddy, impression/PDF via le navigateur, export/import PPTX et ODP simplifiés                                                                                                            |
 
-Buddy reste la mascotte ASCII canonique STH. Il suit le bord de la scène déplacée
-et le curseur réel du texte, y compris les retours à la ligne. Les effets simultanés
-ont chacun leur Buddy. Les graphiques n’ont pas de moteur d’animation indépendant.
+Buddy conserve sa silhouette ASCII STH, sans membres ajoutés. Son corps prend
+appui, se comprime et relâche l’effort ; le contenu bouge au contact. Le crayon,
+le rouleau et la gomme restent attachés à son corps. Le texte apparaît sous la
+pointe, avec une levée entre les caractères et les lignes, y compris dans le code.
+Les accents combinés et les emojis composés restent des caractères entiers.
+Les effets simultanés ont chacun leur Buddy. Le lecteur et l’export HTML utilisent
+le même calcul pour le contenu, les contacts et les outils. Le tampon imprime au
+choc ; l’aimant transporte les mots attachés ; les dominos se transmettent la
+poussée au contact ; le texte gonfle uniquement quand Buddy abaisse le piston.
+Les graphiques n’ont pas de moteur d’animation indépendant.
+
+## Effets de texte et portées
+
+- Transitions : clap, poussée, balayage, soulèvement, souffle, ouverture circulaire,
+  traction, rideau central, page tournée, chute amortie, enroulement et zip diagonal.
+- Apparition et disparition : écriture, rouleau, portage, tampon, rebond,
+  aimant, ruban, éclairage, dominos et gonflage. Une apparition commence sans
+  aucun pixel de texte, y compris pendant la préparation de Buddy ; une
+  disparition conserve le texte initial puis le retire entièrement.
+- Portées : caractère (graphème Unicode), mot, texte entier (encre de toutes les
+  lignes), bloc complet (objet avec son fond et sa boîte). Les portées caractère
+  et mot avancent unité par unité ; le texte entier et le bloc agissent ensemble.
+- Quinze mises en évidence : soulignement, surligneur, cercle, cadre, double
+  soulignement, soulignement ondulé, crochets, flèche, projecteur, couleur peinte,
+  lueur, pulsation, balancement, petit saut et étirement. Le texte reste visible.
+  Les annotations et la couleur restent ; les déformations reviennent à leur
+  géométrie d’origine. Buddy lève son outil entre les mots et les traits.
+- Le panneau Animer sépare type d’effet, portée et geste. La durée conseillée
+  tient compte du nombre d’unités et reste modifiable jusqu’à 60 secondes.
+- Les champs optionnels `animationMode` et `animationScope` restent dans le
+  schéma V2. Les fichiers anciens reçoivent des valeurs compatibles à l’import ;
+  les nouvelles valeurs sont conservées par la bibliothèque, le JSON et le HTML.
+- Un seul effet est attaché à chaque objet, avec son ordre et son déclenchement.
+  Le lecteur et l’export autonome utilisent exactement le même moteur.
 
 ## Compatibilité et limites
 
@@ -63,7 +94,24 @@ lecture/import du format Apple `.key`, anciens formats binaires `.ppt` et `.sxi`
 
 `npm test` couvre le schéma, la migration V1, les entrées malformées, les étapes
 d’animation, la bibliothèque locale (IndexedDB simulé), les exports/réimports PPTX
-et ODP et les refus ZIP/XML. `npm run lint`, `npx tsc --noEmit` et `npm run build`
+et ODP et les refus ZIP/XML. Les tests de gestuelle couvrent les contacts,
+rotations, formats, continuité de la pointe et exécution du lecteur HTML autonome.
+`npm run lint`, `npx tsc --noEmit` et `npm run build`
 vérifient le code et la compilation. Les archives ont été inspectées en mémoire ;
 cela ne constitue pas un test dans les applications natives PowerPoint/Keynote/Impress.
 Le parcours graphique et le double écran réel restent à valider en usage navigateur.
+
+## Projets partagés
+
+- **Partager → Créer le projet partagé** conserve l’original local et crée une version commune sur le serveur.
+- Copier le lien « Peut modifier » pour travailler ensemble, ou « Peut consulter » pour un accès en lecture seule. Les modifications et la présence sont synchronisées toutes les 1,5 secondes environ.
+- Le propriétaire peut révoquer les liens et en créer de nouveaux. L’ancien lien cesse de fonctionner à la prochaine requête. Un prénom est un nom d’affichage, pas une identité vérifiée.
+- L’annulation d’un éditeur conserve les modifications des autres. Les textes, objets et propriétés sont fusionnés ; les suppressions restent des suppressions.
+- **Enregistré sur le serveur** confirme la sauvegarde commune. En cas de coupure, les modifications sont conservées dans une copie de secours par session et fusionnées à la reconnexion. Le fichier Buddy reste exportable.
+- Les projets déjà ouverts se retrouvent dans **Mes présentations**. Les liens de récupération sont propres à ce navigateur ; conserver son lien permet de retrouver le projet sur un autre ordinateur.
+- Les liens de localhost nécessitent le même serveur local. Le travail entre ordinateurs requiert une adresse hébergée commune et l’autorisation d’accéder au Site. Un lien de projet ne contourne pas les restrictions du Site.
+- Taille maximale d’un état partagé : 16 Mo, images incluses. Les médias doivent être intégrés ou utiliser une URL accessible aux participants ; les adresses temporaires `blob:` ne peuvent pas être partagées.
+
+Stockage : métadonnées, droits et présence dans D1 ; états Yjs dans R2. Les secrets des liens sont uniquement hachés en base. Aucun changement du format des fichiers Buddy.
+
+Initialisation locale : `npx wrangler d1 migrations apply DB --local --config wrangler.local.jsonc`, puis `npm run dev -- --port 3001`. Validation du serveur local : `node --experimental-strip-types qa/check-collaboration.ts`.

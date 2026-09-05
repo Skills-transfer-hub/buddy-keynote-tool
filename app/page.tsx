@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type ChangeEvent,
@@ -47,6 +48,7 @@ import {
   ZoomIn,
   ZoomOut,
   Printer,
+  Users,
 } from 'lucide-react';
 import { Buddy, BuddyLogo } from '@/components/buddy';
 import { Button } from '@/components/ui/button';
@@ -84,8 +86,13 @@ import {
   migrateDeck,
   elementLabels,
   animationLabels,
+  animationModeLabels, animationScopeLabels, animationModeFor, animationOptions,
   animationTriggerLabels,
   transitionLabels,
+  transitionDescriptions,
+  animationDescriptions,
+  transitionDurations,
+  animationDurationFor,
   themeLabels,
   aspectRatioLabels,
   type Deck,
@@ -100,6 +107,10 @@ import {
   restoreLocalDeck,
   saveLocalDeck,
 } from '@/lib/local-decks';
+
+import { SharedProjectDialog } from '@/components/shared-project-dialog';
+import { SharedSession, createShared, connectionFromUrl, type SharedConnection, type SharedState } from '@/lib/shared/client';
+import { listShared, type CachedShared } from '@/lib/shared/cache';
 
 type Snapshot = { deck: Deck; activeId: string; selected: string[] };
 type AudienceMessage =
@@ -156,6 +167,14 @@ function IconAction({
 }
 
 export default function Home() {
+  const [shared, setShared] = useState<SharedState | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharedLibrary, setSharedLibrary] = useState<CachedShared[]>([]);
+  const [personName, setPersonName] = useState('Invité');
+  const sharedRef = useRef<SharedSession | null>(null);
+  const documentEpoch = useRef(0);
+  const creatingShared = useRef(false);
+  const readOnly = shared?.role === 'viewer' || shared?.role === 'loading';
   const [deck, setDeck] = useState<Deck>(initialDeck);
   const [activeId, setActiveId] = useState(initialDeck.slides[0].id);
   const [selected, setSelected] = useState<string[]>([]);
@@ -231,16 +250,77 @@ export default function Home() {
     setDeck(next);
     setRevision((n) => n + 1);
   }
+  function openShared(connection: SharedConnection) {
+    documentEpoch.current++;
+    sharedRef.current?.dispose();
+    transaction.current = null;
+    undoRef.current = []; redoRef.current = [];
+    setHistory({undo:0,redo:0});
+    const session = new SharedSession(connection, next => {
+      if (sharedRef.current !== session) return;
+      install(next);
+      if (!next.slides.some(s => s.id === activeRef.current)) activate(next.slides[0].id);
+      const current = next.slides.find(s => s.id === activeRef.current)!;
+      const remaining = selectedRef.current.filter(id => current.elements.some(e => e.id === id));
+      if (remaining.length !== selectedRef.current.length) select(remaining);
+      const playing = playbackRef.current;
+      if (playing && (!next.slides[playing.index] || playing.previousIndex !== null && !next.slides[playing.previousIndex])) commands.current.close();
+      setHydrated(true);
+    }, value => {
+      if (sharedRef.current === session) {setShared(value); setSaveState(value.message); setHydrated(true);}
+    }, setHistory);
+    sharedRef.current = session;
+    session.name = personName; session.slideId = activeRef.current;
+    window.history.replaceState(null, '', `/#shared=${connection.id}&key=${connection.token}`);
+    void session.start();
+  }
+  const hydrateShared = useEffectEvent(openShared);
+  function switchDocument(next: Deck) {
+    documentEpoch.current++;
+    sharedRef.current?.dispose(); sharedRef.current = null;
+    setShared(null); setSaveState('Enregistrement…');
+    window.history.replaceState(null, '', '/');
+    undoRef.current=[]; redoRef.current=[]; transaction.current=null;
+    setHistory({undo:0,redo:0}); install(next); activate(next.slides[0].id);
+  }
+  async function saveBeforeSwitch() {
+    if (sharedRef.current) await sharedRef.current.flush();
+    else await saveLocalDeck(deckRef.current);
+  }
+  const followSharedLink = useEffectEvent(async (connection: SharedConnection) => {await saveBeforeSwitch();openShared(connection);});
+  async function beginSharing() {
+    creatingShared.current = true;
+    try {
+      const next = deckRef.current;
+      const epoch = documentEpoch.current;
+      await saveBeforeSwitch();
+      const connection = await createShared(next);
+      if (epoch === documentEpoch.current) openShared(connection);
+    } finally { creatingShared.current = false; }
+  }
+  async function leaveShared() {
+    await saveBeforeSwitch();
+    const local = await restoreLocalDeck();
+    switchDocument(local ?? structuredClone(initialDeck)); setShareOpen(false);
+  }
   function beginEdit() {
+    sharedRef.current?.history.stopCapturing();
     transaction.current = { snapshot: snapshot(), recorded: false };
   }
   function endEdit() {
+    sharedRef.current?.history.stopCapturing();
     transaction.current = null;
   }
   function commit(updater: (value: Deck) => Deck) {
     const current = deckRef.current;
+    if (creatingShared.current) return;
+    if (sharedRef.current?.state.role === 'viewer' || sharedRef.current?.state.role === 'loading') return;
     const next = updater(current);
     if (next === current) return;
+    if (sharedRef.current) {
+      sharedRef.current.commit(current, {...next, updatedAt: new Date().toISOString()});
+      return;
+    }
     if (!transaction.current || !transaction.current.recorded) {
       undoRef.current = [
         ...undoRef.current.slice(-59),
@@ -276,6 +356,7 @@ export default function Home() {
     }));
   }
   function undo() {
+    if (sharedRef.current) {if (sharedRef.current.state.role !== 'viewer') sharedRef.current.history.undo(); return;}
     const previous = undoRef.current.pop();
     if (!previous) return;
     redoRef.current.push(snapshot());
@@ -286,6 +367,7 @@ export default function Home() {
     setHistory({ undo: undoRef.current.length, redo: redoRef.current.length });
   }
   function redo() {
+    if (sharedRef.current) {if (sharedRef.current.state.role !== 'viewer') sharedRef.current.history.redo(); return;}
     const next = redoRef.current.pop();
     if (!next) return;
     undoRef.current.push(snapshot());
@@ -614,6 +696,7 @@ export default function Home() {
   ) {
     const items: SlideElement[] = [];
     const targetId = activeRef.current;
+    const epoch = documentEpoch.current;
     for (const file of Array.from(files).slice(0, 12)) {
       if (slide.elements.length + items.length >= 300) break;
       if (
@@ -638,6 +721,7 @@ export default function Home() {
         setStatus(`Impossible de lire l’image « ${file.name} ».`);
         continue;
       }
+      if (epoch !== documentEpoch.current) return;
       if (replaceId) {
         commit((value) => ({
           ...value,
@@ -665,6 +749,7 @@ export default function Home() {
         items.push(item);
       }
     }
+    if (epoch !== documentEpoch.current) return;
     if (items.length) {
       commit((value) => ({
         ...value,
@@ -697,9 +782,9 @@ export default function Home() {
         warnings = result.warnings;
       } else next = migrateDeck(JSON.parse(await file.text()));
       if (!next) throw new Error('Format de présentation invalide.');
-      await saveLocalDeck(deckRef.current);
+      await saveBeforeSwitch();
       next = { ...next, id: createId('deck') };
-      commit(() => next!);
+      switchDocument(next);
       activate(next.slides[0].id);
       setStatus(
         warnings.length
@@ -939,10 +1024,19 @@ export default function Home() {
       session.postMessage({ type: 'ready' });
       return () => session.close();
     }
+    try { setPersonName(localStorage.getItem('buddy-collaborator-name') || 'Invité'); } catch { /* Use default nickname. */ }
+    const connection = connectionFromUrl();
+    const onHashChange = () => { const next=connectionFromUrl(); if(next) void followSharedLink(next).catch(()=>setStatus('Exportez votre présentation avant de changer de projet.')); };
+    window.addEventListener('hashchange',onHashChange);
+    if (connection) {
+      hydrateShared(connection);
+      return () => { window.removeEventListener('hashchange',onHashChange); sharedRef.current?.dispose(); sharedRef.current=null; };
+    }
     let live = true;
+    const epoch = documentEpoch.current;
     void restoreLocalDeck()
       .then(async (saved) => {
-        if (!live) return;
+        if (!live || epoch !== documentEpoch.current) return;
         if (saved) {
           deckRef.current = saved;
           setDeck(saved);
@@ -951,7 +1045,7 @@ export default function Home() {
         }
         try {
           await saveLocalDeck(saved ?? deckRef.current);
-          if (live) setSaveState('Enregistré sur cet appareil');
+          if (live && epoch === documentEpoch.current) setSaveState('Enregistré sur cet appareil');
         } catch {
           if (live) {
             setSaveState('Export conseillé');
@@ -973,15 +1067,16 @@ export default function Home() {
         if (live) setHydrated(true);
       });
     return () => {
-      live = false;
+      live = false; window.removeEventListener('hashchange',onHashChange); sharedRef.current?.dispose();
     };
   }, []);
   useEffect(() => {
-    if (!hydrated || !revision || audience) return;
+    if (!hydrated || !revision || audience || sharedRef.current) return;
     // oxlint-disable-next-line react/react-compiler -- report the pending external IndexedDB write
     setSaveState('Enregistrement…');
     let current = true;
     const timer = setTimeout(() => {
+      if (sharedRef.current) return;
       void saveLocalDeck(deck)
         .then(() => {
           if (current) setSaveState('Enregistré sur cet appareil');
@@ -1002,6 +1097,7 @@ export default function Home() {
   }, [deck, revision, hydrated, audience]);
   useEffect(() => {
     const flush = () => {
+      if (sharedRef.current) { void sharedRef.current.flush(); return; }
       if (hydrated && revision && !audience)
         void saveLocalDeck(deckRef.current).catch(() => undefined);
     };
@@ -1013,13 +1109,16 @@ export default function Home() {
     };
   }, [hydrated, revision, audience]);
   useEffect(() => {
+    if (sharedRef.current) {sharedRef.current.name=personName; sharedRef.current.slideId=activeId;}
+  }, [personName, activeId]);
+  useEffect(() => {
     if (presenter)
       channel.current?.postMessage({ type: 'snapshot', deck, playback });
   }, [deck, playback, presenter]);
   useEffect(() => {
     if (!playback || audience || playbackBusy) return;
     const current = deck.slides[playback.index];
-    if (!current.autoAdvance) return;
+    if (!current?.autoAdvance) return;
     const duration =
       playback.step < animationGroups(current).length - 1
         ? 0
@@ -1200,7 +1299,7 @@ export default function Home() {
 
   return (
     <main className="studio-app" data-theme={deck.theme}>
-      <StudioWebMcp
+      {!readOnly && <StudioWebMcp
         deck={deck}
         onCreate={(title, body) => {
           if (deck.slides.length >= 250)
@@ -1214,7 +1313,7 @@ export default function Home() {
           activate(next.id);
           return next.id;
         }}
-      />
+      />}
       <div
         className="studio-editor"
         inert={audienceInert ? true : undefined}
@@ -1228,6 +1327,7 @@ export default function Home() {
           </div>
           <div className="studio-document">
             <Input
+              disabled={readOnly}
               aria-label="Nom de la présentation"
               value={deck.title}
               maxLength={120}
@@ -1237,12 +1337,14 @@ export default function Home() {
                 commit((value) => ({ ...value, title: e.target.value }))
               }
             />
-            <span>{saveState}</span>
+            <span title={shared?.error}>{saveState}{shared ? ` · ${shared.role==='viewer'?'Lecture seule':`${shared.people.length} connecté(s)`}` : ''}</span>
           </div>
           <div className="studio-header-actions">
+            <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}><Users/>Partager</Button>
             <IconAction
               title="Mes présentations"
               onClick={() => {
+                void listShared().then(setSharedLibrary).catch(()=>setSharedLibrary([]));
                 void listLocalDecks()
                   .then(setLibrary)
                   .catch(() => setStatus('Bibliothèque indisponible.'));
@@ -1252,14 +1354,14 @@ export default function Home() {
             </IconAction>
             <IconAction
               title="Annuler (⌘Z)"
-              disabled={!history.undo}
+              disabled={readOnly || !history.undo}
               onClick={undo}
             >
               <Undo2 />
             </IconAction>
             <IconAction
               title="Rétablir (⇧⌘Z)"
-              disabled={!history.redo}
+              disabled={readOnly || !history.redo}
               onClick={redo}
             >
               <Redo2 />
@@ -1318,7 +1420,7 @@ export default function Home() {
             </Button>
           </div>
         </header>
-        <nav className="studio-ribbon" aria-label="Outils d’insertion">
+        <nav inert={readOnly || undefined} className="studio-ribbon" aria-label="Outils d’insertion">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="outline" size="sm" />}
@@ -1580,7 +1682,7 @@ export default function Home() {
                   <StudioSlide
                     slide={slide}
                     aspectRatio={deck.aspectRatio}
-                    editable
+                    editable={!readOnly}
                     selectedIds={selected}
                     onSelect={selectElement}
                     onTransformStart={() => {
@@ -1635,7 +1737,7 @@ export default function Home() {
                 </IconAction>
               </div>
             </div>
-            <div className="studio-notes">
+            <div className="studio-notes" inert={readOnly || undefined}>
               <StickyNote size={16} />
               <Textarea
                 aria-label="Notes de l’orateur"
@@ -1649,7 +1751,7 @@ export default function Home() {
               />
             </div>
           </section>
-          <aside className="studio-inspector" aria-label="Inspecteur">
+          <aside inert={readOnly || undefined} className="studio-inspector" aria-label="Inspecteur">
             <Tabs value={inspector} onValueChange={setInspector}>
               <TabsList variant="line" className="inspector-nav">
                 <TabsTrigger value="format">Format</TabsTrigger>
@@ -1813,7 +1915,7 @@ export default function Home() {
                 <section className="inspector-block buddy-motion-card">
                   <Buddy
                     state="work"
-                    caption="Je m’occupe de la mise en scène."
+                    caption="Apparition, disparition et 15 mises en évidence."
                   />
                   <Button onClick={() => start(activeIndex)} variant="outline">
                     <Play />
@@ -1829,9 +1931,11 @@ export default function Home() {
                     onChange={(transition) =>
                       patchSlide({
                         transition: transition as Slide['transition'],
+                        transitionDuration: transitionDurations[transition as Slide['transition']],
                       })
                     }
                   />
+                  <p className="motion-description">{transitionDescriptions[slide.transition]}</p>
                   <NumberField
                     label="Durée (secondes)"
                     value={slide.transitionDuration / 1000}
@@ -1864,16 +1968,24 @@ export default function Home() {
                 {element && (
                   <section className="inspector-block">
                     <h3>{elementLabels[element.kind]} sélectionné</h3>
+                    <Choice label="Type d’effet" value={animationModeFor(element)} options={animationModeLabels}
+                      onChange={(mode) => patchElement(element.id, { animationMode: mode as SlideElement['animationMode'], animation: mode === 'emphasis' ? 'highlight' : 'reveal' })} />
+                    <Choice label="Appliquer à" value={element.animationScope || (element.kind === 'text' || element.kind === 'code' ? 'word' : 'block')}
+                      options={element.kind === 'text' || element.kind === 'code' ? animationScopeLabels : {block:'Bloc complet'}}
+                      onChange={(scope) => patchElement(element.id, {animationScope:scope as SlideElement['animationScope'],animationDuration:animationDurationFor(element.animation,element.kind==='text'?element.text:element.kind==='code'?element.code:'',scope as NonNullable<SlideElement['animationScope']>)})} />
+                    <p className="field-help">Texte entier : les lettres ensemble. Bloc complet : l’objet avec son fond et son cadre.</p>
                     <Choice
                       label="Animation"
-                      value={element.animation}
-                      options={animationLabels}
+                      value={element.animation==='exit'?'reveal':element.animation}
+                      options={animationOptions(animationModeFor(element))}
                       onChange={(animation) =>
                         patchElement(element.id, {
                           animation: animation as SlideElement['animation'],
+                          animationDuration: animationDurationFor(animation as SlideElement['animation'], element.kind === 'text' ? element.text : element.kind === 'code' ? element.code : '', element.animationScope || 'word'),
                         })
                       }
                     />
+                    <p className="motion-description">{animationDescriptions[element.animation]}</p>
                     <Choice
                       label="Déclenchement"
                       value={element.animationTrigger}
@@ -1899,7 +2011,7 @@ export default function Home() {
                         label="Durée (s)"
                         value={element.animationDuration / 1000}
                         min={0.2}
-                        max={20}
+                        max={60}
                         step={0.1}
                         onChange={(v) =>
                           patchElement(element.id, {
@@ -1929,7 +2041,7 @@ export default function Home() {
                             {e.kind === 'text'
                               ? e.text.slice(0, 38)
                               : elementLabels[e.kind]}{' '}
-                            · {animationTriggerLabels[e.animationTrigger]}
+                            · {animationModeLabels[animationModeFor(e)]} · {animationScopeLabels[e.animationScope || 'word']} · {animationTriggerLabels[e.animationTrigger]}
                           </small>
                         </div>
                       </button>
@@ -2042,6 +2154,10 @@ export default function Home() {
         aria-label="Importer une présentation"
         onChange={importDeck}
       />
+      <SharedProjectDialog open={shareOpen} onOpenChange={setShareOpen} state={shared} name={personName}
+        onName={name=>{setPersonName(name);try{localStorage.setItem('buddy-collaborator-name',name);}catch{/* Preference is optional. */}}}
+        onCreate={beginSharing} onRotate={async()=>{await sharedRef.current?.rotate();}}
+        onLeave={()=>{void leaveShared().catch(()=>setStatus('Impossible de restaurer les projets locaux.'));}} />
       <Dialog
         open={library !== null}
         onOpenChange={(open) => !open && setLibrary(null)}
@@ -2054,14 +2170,14 @@ export default function Home() {
           </DialogDescription>
           <Button
             onClick={() => {
-              void saveLocalDeck(deckRef.current)
+              void saveBeforeSwitch()
                 .then(() => {
                   const next = {
                     ...copy(initialDeck),
                     id: createId('deck'),
                     title: 'Nouvelle présentation',
                   };
-                  commit(() => next);
+                  switchDocument(next);
                   activate(next.slides[0].id);
                   setLibrary(null);
                 })
@@ -2075,14 +2191,15 @@ export default function Home() {
             <Plus />
             Nouvelle présentation
           </Button>
+          {sharedLibrary.map(item => <button className="library-item" key={item.id} onClick={() => {void saveBeforeSwitch().then(() => {openShared(item.connection);setLibrary(null);}).catch(()=>setStatus('Sauvegarde indisponible.'));}}><strong><Users size={14} className="inline mr-2"/>{item.title}</strong><span>Projet partagé{item.pending?' · modifications en attente':''}</span></button>)}
           {library?.map((item) => (
             <button
               key={item.id}
               className="library-item"
               onClick={() => {
-                void saveLocalDeck(deckRef.current)
+                void saveBeforeSwitch()
                   .then(() => {
-                    commit(() => item);
+                    switchDocument(item);
                     activate(item.slides[0].id);
                     setLibrary(null);
                   })
