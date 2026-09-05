@@ -4,9 +4,7 @@ import 'fake-indexeddb/auto';
 import { SharedSession, createShared } from '../lib/shared/client.ts';
 import {
   createDocument,
-  readDocument,
   changeDocument,
-  fromBase64,
   toBase64,
 } from '../lib/shared/document.ts';
 import { initialDeck, type Deck } from '../lib/studio.ts';
@@ -18,7 +16,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     new Headers(init?.headers).get('X-Buddy-Key') === offlineToken
   )
     throw Error('Coupure simulée');
-  return nativeFetch(new URL(String(input), base), init);
+  return nativeFetch(new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, base), init);
 }) as typeof fetch;
 const deck = structuredClone(initialDeck);
 deck.title = 'QA collaboration';

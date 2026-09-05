@@ -37,3 +37,17 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# Generated comparison and QA output (sources remain versioned)
+/comparison/checks/
+/comparison/buddy-comparatif.html
+/qa/buddy-24-gestes.buddy.json
+/qa/buddy-24-gestes.html
+/qa/buddy-silhouette.html
+/qa/text-effects.buddy.json
+/qa/text-effects.html
+/qa/text-editor-fixture.buddy.json
+/qa/contacts-texte.png
+/qa/contacts-transitions.png
+/qa/physics-checks/
+/qa/text-checks/

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trois façons d’animer Buddy — Comparatif</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header class="heading">
+      <div><p class="eyebrow">STH · LABORATOIRE BUDDY</p><h1>Un geste. Trois Buddy.</h1></div>
+      <span class="local-badge"><i></i> Comparatif local</span>
+    </header>
+    <p class="intro">Même slide, même crayon, même tempo. Comparez le mouvement et choisissez votre direction.</p>
+    <div class="chapter-bar" aria-label="Aller à une action">
+      <button data-seek="0" class="chapter active"><span>01</span> Pousser une slide</button>
+      <button data-seek="5250" class="chapter"><span>02</span> Écrire « Bonjour »</button>
+      <p id="phase" role="status" aria-live="polite">Se préparer</p>
+    </div>
+    <section class="comparisons" aria-label="Trois simulations synchronisées">
+      <article class="variant" data-style="ascii">
+        <div class="variant-heading"><span class="number">A</span><div><h2>ASCII articulé</h2><p>Le visage d’origine, des membres en plus.</p></div></div>
+        <svg viewBox="0 0 640 400" role="img" aria-label="Buddy ASCII articulé pousse la slide puis écrit Bonjour"></svg>
+        <div class="variant-footer"><span>Bras · mains · jambes</span><button class="choose" data-choice="ascii" aria-pressed="false">Choisir A</button></div>
+      </article>
+      <article class="variant" data-style="silhouette">
+        <div class="variant-heading"><span class="number">B</span><div><h2>Silhouette actuelle</h2><p>Tout passe par le corps et son outil.</p></div></div>
+        <svg viewBox="0 0 640 400" role="img" aria-label="Buddy sans membres pousse avec son flanc puis écrit avec un crayon fixé au corps"></svg>
+        <div class="variant-footer"><span>Inclinaison · compression · rebond</span><button class="choose" data-choice="silhouette" aria-pressed="false">Choisir B</button></div>
+      </article>
+      <article class="variant" data-style="drawn">
+        <div class="variant-heading"><span class="number">C</span><div><h2>Mascotte dessinée</h2><p>Une version illustrée et expressive.</p></div></div>
+        <svg viewBox="0 0 640 400" role="img" aria-label="La mascotte Buddy illustrée pousse la slide puis écrit Bonjour"></svg>
+        <div class="variant-footer"><span>Articulations · expressions · gestes</span><button class="choose" data-choice="drawn" aria-pressed="false">Choisir C</button></div>
+      </article>
+    </section>
+    <section class="transport" aria-label="Commandes communes aux trois simulations">
+      <div class="transport-top">
+        <div class="buttons"><button id="play" class="primary" aria-label="Lire les trois simulations"><span id="play-icon">▶</span><span id="play-label">Lire</span></button><button id="replay" aria-label="Rejouer les trois simulations">↺ <span>Rejouer</span></button></div>
+        <div class="speed" role="group" aria-label="Vitesse de lecture"><button data-speed="1" aria-pressed="true">1×</button><button data-speed="0.5" aria-pressed="false">½×</button><button data-speed="0.25" aria-pressed="false">¼×</button></div>
+        <output id="time" for="timeline">0,00 / 14,40 s</output>
+      </div>
+      <label class="sr-only" for="timeline">Position dans la séquence commune</label>
+      <input id="timeline" type="range" min="0" max="14400" step="10" value="0" aria-valuetext="0 seconde, Se préparer">
+      <div class="timeline-labels"><span>Préparer</span><span>Contact & poussée</span><span>Saisir</span><span>Tracer</span><span>Observer</span></div>
+    </section>
+    <footer><p id="selection" aria-live="polite">Aucune direction choisie.</p><span>Espace : lecture / pause · Flèches : ± 0,1 s</span></footer>
+  </main>
+  <script type="module" src="app.mjs"></script>
+</body>
+</html>
