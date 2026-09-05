@@ -18,6 +18,7 @@
     "start": "next start",
     "pretypecheck": "node scripts/build-export-assets.mjs",
     "typecheck": "next typegen && tsc --noEmit",
+    "prelint": "node scripts/build-export-assets.mjs",
     "lint": "oxlint",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
     "format": "oxfmt"
