@@ -3,11 +3,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { StudioSlide } from '@/components/studio-slide';
 import { animationGroups } from './playback';
 import type { Deck } from './studio';
-// oxlint-disable-next-line import/default -- Vite ?raw imports expose source text.
-import motionSource from './buddy-motion.js?raw';
-// oxlint-disable-next-line import/default -- Vite ?raw imports expose source text.
-import playbackSource from './offline-playback.js?raw';
-import studioCss from '@/app/studio.css?raw';
+import {
+  motionSource,
+  playbackSource,
+  studioCss,
+} from './generated/export-assets';
 
 /** A self-contained document. Local image data and the director timeline travel with it. */
 export async function exportHtml(deck: Deck): Promise<Blob> {

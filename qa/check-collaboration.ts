@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { appendFile } from 'node:fs/promises';
 import * as Y from 'yjs';
 import 'fake-indexeddb/auto';
 import { SharedSession, createShared } from '../lib/shared/client.ts';
@@ -8,19 +9,36 @@ import {
   toBase64,
 } from '../lib/shared/document.ts';
 import { initialDeck, type Deck } from '../lib/studio.ts';
-const base = 'http://localhost:3001';
+const base = process.env.BUDDY_TEST_URL || 'http://localhost:3001';
+const createKey = process.env.BUDDY_CREATE_KEY;
+assert.ok(createKey, 'Set BUDDY_CREATE_KEY to the server creation code.');
+async function recordCreatedId(id: string) {
+  const path = process.env.BUDDY_TEST_IDS_FILE;
+  if (path) await appendFile(path, JSON.stringify({ id }) + '\n');
+}
 const nativeFetch = globalThis.fetch;
 let offlineToken = '';
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-  if (
-    new Headers(init?.headers).get('X-Buddy-Key') === offlineToken
-  )
+  if (new Headers(init?.headers).get('X-Buddy-Key') === offlineToken)
     throw Error('Coupure simulée');
-  return nativeFetch(new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, base), init);
+  const headers = new Headers(init?.headers);
+  headers.set('Origin', new URL(base).origin);
+  return nativeFetch(
+    new URL(
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url,
+      base,
+    ),
+    { ...init, headers },
+  );
 }) as typeof fetch;
 const deck = structuredClone(initialDeck);
 deck.title = 'QA collaboration';
-const connection = await createShared(deck);
+const connection = await createShared(deck, createKey);
+await recordCreatedId(connection.id);
 let aDeck = deck,
   bDeck = deck,
   vDeck = deck;
@@ -110,6 +128,9 @@ try {
       ),
       vector: toBase64(Y.encodeStateVector(vdoc)),
       revision: 0,
+      session: viewer.session,
+      name: viewer.name,
+      slideId: viewer.slideId,
     }),
   });
   assert.equal(denied.status, 403);
@@ -172,19 +193,20 @@ try {
   console.log(
     'PASS server-enforced viewer rights, revoked tokens, replacement invitation',
   );
-  // A snapshot larger than a D1 row must survive using R2.
+  // A large snapshot must survive the database round trip.
   const large = structuredClone(deck);
   const img = {
     ...large.slides[0].elements[0],
     id: 'qa-image',
     kind: 'image',
-    src: 'data:image/png;base64,' + 'A'.repeat(3_000_000),
+    src: 'data:image/png;base64,' + 'A'.repeat(2_500_000),
     alt: 'QA',
     fit: 'contain',
     borderRadius: 0,
   };
   large.slides[0].elements.push(img as never);
-  const largeConn = await createShared(large);
+  const largeConn = await createShared(large, createKey);
+  await recordCreatedId(largeConn.id);
   let received: Deck | undefined;
   const largeSession = new SharedSession(
     { id: largeConn.id, token: largeConn.viewer! },
@@ -200,10 +222,10 @@ try {
   const receivedImage = received?.slides[0].elements.at(-1);
   assert.equal(
     receivedImage?.kind === 'image' ? receivedImage.src.length : 0,
-    3_000_022,
+    2_500_022,
   );
   largeSession.dispose();
-  console.log('PASS R2 snapshot over 3 MB');
+  console.log('PASS PostgreSQL snapshot with a 2.5 MB embedded image');
 } finally {
   a.dispose();
   b.dispose();

@@ -2,8 +2,12 @@ import PptxGenJS from 'pptxgenjs';
 import {
   strFromU8,
   strToU8,
+  Unzip,
+  UnzipInflate,
   unzipSync,
   zipSync,
+  type UnzipFile,
+  type UnzipFileInfo,
   type Unzipped,
   type Zippable,
 } from 'fflate';
@@ -912,12 +916,14 @@ function relevantArchiveEntry(name: string) {
   );
 }
 
-function unzipOfficeArchive(bytes: Uint8Array) {
+async function unzipOfficeArchive(bytes: Uint8Array, signal?: AbortSignal) {
   let entries = 0;
   let totalSize = 0;
-  const seen = new Set<string>();
+  const directory = new Map<string, UnzipFileInfo>();
 
-  return unzipSync(bytes, {
+  // Inspect the central directory without inflating anything. Its sizes are
+  // untrusted: the streaming pass below also counts the actual output bytes.
+  unzipSync(bytes, {
     filter(info) {
       entries += 1;
       if (entries > MAX_ZIP_ENTRIES) {
@@ -930,12 +936,12 @@ function unzipOfficeArchive(bytes: Uint8Array) {
           `Archive refusée : chemin ZIP dangereux (${info.name}).`,
         );
       }
-      if (seen.has(info.name)) {
+      if (directory.has(info.name)) {
         throw new Error(
           `Archive refusée : entrée ZIP dupliquée (${info.name}).`,
         );
       }
-      seen.add(info.name);
+      directory.set(info.name, info);
       if (!relevantArchiveEntry(info.name)) return false;
       const imageEntry =
         info.name.startsWith('Pictures/') || info.name.startsWith('ppt/media/');
@@ -961,9 +967,101 @@ function unzipOfficeArchive(bytes: Uint8Array) {
           'Archive refusée : contenu décompressé trop volumineux.',
         );
       }
-      return true;
+      return false;
     },
   });
+
+  const result: Unzipped = Object.create(null);
+  const seen = new Set<string>();
+  const active = new Set<UnzipFile>();
+  let actualTotal = 0;
+  let failure: Error | undefined;
+  const archive = new Unzip((file) => {
+    const expected = directory.get(file.name);
+    if (
+      !expected ||
+      seen.has(file.name) ||
+      file.compression !== expected.compression ||
+      (file.size !== undefined && file.size !== expected.size) ||
+      (file.originalSize !== undefined &&
+        file.originalSize !== expected.originalSize)
+    ) {
+      throw new Error('Archive refusée : en-têtes ZIP incohérents.');
+    }
+    seen.add(file.name);
+    if (!relevantArchiveEntry(file.name)) return;
+
+    const limit =
+      file.name.startsWith('Pictures/') || file.name.startsWith('ppt/media/')
+        ? MAX_IMAGE_BYTES
+        : MAX_ENTRY_BYTES;
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    active.add(file);
+    file.ondata = (error, chunk, final) => {
+      if (failure) return;
+      if (error) {
+        failure = new Error(`Archive ZIP invalide (${file.name}).`);
+        return;
+      }
+      length += chunk.length;
+      actualTotal += chunk.length;
+      if (length > limit || actualTotal > MAX_UNCOMPRESSED_BYTES) {
+        failure = new Error(
+          'Archive refusée : contenu décompressé trop volumineux.',
+        );
+        return;
+      }
+      if (
+        length > expected.originalSize ||
+        (final && length !== expected.originalSize)
+      ) {
+        failure = new Error(
+          `Archive refusée : taille ZIP incohérente (${file.name}).`,
+        );
+        return;
+      }
+      chunks.push(chunk);
+      if (final) {
+        const content = new Uint8Array(length);
+        let offset = 0;
+        for (const part of chunks) {
+          content.set(part, offset);
+          offset += part.length;
+        }
+        result[file.name] = content;
+        chunks.length = 0;
+        active.delete(file);
+      }
+    };
+    file.start();
+  });
+  archive.register(UnzipInflate);
+
+  try {
+    let lastYield = performance.now();
+    // DEFLATE can expand a small input enormously. Feed at most 1 KiB before
+    // checking emitted output, and yield regularly so imports stay cancellable.
+    for (let offset = 0; offset < bytes.length; offset += 1024) {
+      signal?.throwIfAborted();
+      archive.push(
+        bytes.subarray(offset, offset + 1024),
+        offset + 1024 >= bytes.length,
+      );
+      if (failure) throw failure;
+      if (performance.now() - lastYield >= 8) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        lastYield = performance.now();
+      }
+    }
+    signal?.throwIfAborted();
+    if (active.size || seen.size !== directory.size) {
+      throw new Error('Archive refusée : contenu ZIP incomplet.');
+    }
+    return result;
+  } finally {
+    for (const file of active) file.terminate();
+  }
 }
 
 function parseXml(entries: Unzipped, path: string, required = true) {
@@ -1139,7 +1237,11 @@ function isOdp(entries: Unzipped) {
   );
 }
 
-export async function importOffice(file: File): Promise<OfficeImportResult> {
+export async function importOffice(
+  file: File,
+  signal?: AbortSignal,
+): Promise<OfficeImportResult> {
+  signal?.throwIfAborted();
   if (file.size <= 0) throw new Error('Le fichier Office est vide.');
   if (file.size > MAX_ARCHIVE_BYTES) {
     throw new Error(
@@ -1150,7 +1252,7 @@ export async function importOffice(file: File): Promise<OfficeImportResult> {
   if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
     throw new Error('Ce fichier n’est pas une archive PPTX ou ODP valide.');
   }
-  const entries = unzipOfficeArchive(bytes);
+  const entries = await unzipOfficeArchive(bytes, signal);
   if (isPptx(entries)) return importPptx(entries, file.name);
   if (isOdp(entries)) return importOdp(entries, file.name);
   throw new Error(

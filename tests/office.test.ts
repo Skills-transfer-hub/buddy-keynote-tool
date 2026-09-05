@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { JSDOM } from 'jsdom';
-import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
+import {
+  strFromU8,
+  strToU8,
+  unzipSync,
+  zipSync,
+  Zip,
+  ZipDeflate,
+} from 'fflate';
 import {
   initialDeck,
   makeElement,
@@ -112,5 +119,85 @@ void test('Office refuse les entités XML et les chemins ZIP dangereux', async (
   await assert.rejects(
     importOffice(new File([Uint8Array.from(pathAttack)], 'evil.pptx')),
     /chemin ZIP dangereux/,
+  );
+});
+
+function declaredZipSize(archive: Uint8Array, size: number, local = true) {
+  const bytes = Uint8Array.from(archive);
+  const view = new DataView(bytes.buffer);
+  for (let offset = 0; offset <= bytes.length - 30; offset++) {
+    const signature = view.getUint32(offset, true);
+    if (signature === 0x02014b50) view.setUint32(offset + 24, size, true);
+    if (local && signature === 0x04034b50)
+      view.setUint32(offset + 22, size, true);
+  }
+  return bytes;
+}
+
+void test('Office arrête une bombe DEFLATE dont la taille déclarée est falsifiée', async () => {
+  // About 8 KiB compressed, but 8 MiB of actual output. A fixed-size inflate
+  // buffer silently truncates this payload and still processes all its bytes.
+  const archive = zipSync({ 'content.xml': new Uint8Array(8 * 1024 * 1024) });
+  const forged = declaredZipSize(archive, 8192);
+  await assert.rejects(
+    importOffice(new File([forged], 'forged.odp')),
+    /taille ZIP incohérente/,
+  );
+});
+
+void test('Office refuse les tailles finales et les en-têtes ZIP incohérents', async () => {
+  const content = strToU8('<office/>');
+  const archive = zipSync({ 'content.xml': content });
+  await assert.rejects(
+    importOffice(
+      new File([declaredZipSize(archive, content.length + 1)], 'long.odp'),
+    ),
+    /taille ZIP incohérente/,
+  );
+  await assert.rejects(
+    importOffice(
+      new File(
+        [declaredZipSize(archive, content.length + 1, false)],
+        'headers.odp',
+      ),
+    ),
+    /en-têtes ZIP incohérents/,
+  );
+});
+
+void test('Office accepte les ZIP avec descripteurs de données', async () => {
+  const ordinary = unzipSync(
+    new Uint8Array(await exportOdp(sample()).arrayBuffer()),
+  );
+  const chunks: Uint8Array[] = [];
+  const zip = new Zip((error, chunk) => {
+    assert.ifError(error);
+    chunks.push(chunk);
+  });
+  for (const [name, content] of Object.entries(ordinary)) {
+    const entry = new ZipDeflate(name);
+    zip.add(entry);
+    entry.push(content, true);
+  }
+  zip.end();
+  const archive = new Uint8Array(
+    chunks.reduce((total, chunk) => total + chunk.length, 0),
+  );
+  let offset = 0;
+  for (const chunk of chunks) {
+    archive.set(chunk, offset);
+    offset += chunk.length;
+  }
+  const result = await importOffice(new File([archive], 'streamed.odp'));
+  assert.ok(migrateDeck(result.deck));
+  assert.equal(result.deck.slides.length, 1);
+});
+
+void test('Office respecte une annulation avant de lire le fichier', async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    importOffice(new File(['unread'], 'cancel.odp'), controller.signal),
+    { name: 'AbortError' },
   );
 });

@@ -288,13 +288,13 @@ export default function Home() {
     else await saveLocalDeck(deckRef.current);
   }
   const followSharedLink = useEffectEvent(async (connection: SharedConnection) => {await saveBeforeSwitch();openShared(connection);});
-  async function beginSharing() {
+  async function beginSharing(createKey: string) {
     creatingShared.current = true;
     try {
       const next = deckRef.current;
       const epoch = documentEpoch.current;
       await saveBeforeSwitch();
-      const connection = await createShared(next);
+      const connection = await createShared(next, createKey);
       if (epoch === documentEpoch.current) openShared(connection);
     } finally { creatingShared.current = false; }
   }

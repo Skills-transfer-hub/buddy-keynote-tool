@@ -1,0 +1,11 @@
+.git
+.env*
+outputs
+qa
+comparison
+tests
+supabase
+.wrangler
+.vinext
+dist
+node_modules

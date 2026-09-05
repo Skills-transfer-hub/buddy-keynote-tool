@@ -76,7 +76,12 @@ Les graphiques n’ont pas de moteur d’animation indépendant.
 - La régie utilise `BroadcastChannel` et une fenêtre autorisée par le navigateur.
   Aucun serveur de diffusion distante n’est inclus.
 
-Non inclus : coédition et commentaires multi-utilisateurs, comptes/bibliothèque cloud,
+La coédition est disponible pour les documents partagés : liens privés à trois
+rôles, fusion Yjs, présence, révocation et reprise hors ligne. Le déploiement
+Vercel utilise le schéma PostgreSQL `buddy_keynote` dans Supabase. La création
+d’un partage demande un code privé. Voir le README pour les limites et l’installation.
+
+Non inclus : commentaires multi-utilisateurs, comptes/bibliothèque cloud,
 masques éditables hérités, SmartArt, équations, morphing, trajectoires libres, objets 3D,
 dessin vectoriel avancé, enregistrement vidéo, sous-titrage en direct, macros,
 lecture/import du format Apple `.key`, anciens formats binaires `.ppt` et `.sxi`.

@@ -25,12 +25,13 @@ export function SharedProjectDialog({
   state: SharedState | null;
   name: string;
   onName: (name: string) => void;
-  onCreate: () => Promise<void>;
+  onCreate: (createKey: string) => Promise<void>;
   onRotate: () => Promise<void>;
   onLeave: () => void;
 }) {
   const [busy, setBusy] = useState(false),
-    [message, setMessage] = useState('');
+    [message, setMessage] = useState(''),
+    [createKey, setCreateKey] = useState('');
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     setMessage('');
@@ -59,7 +60,10 @@ export function SharedProjectDialog({
     <Dialog
       open={open}
       onOpenChange={(value) => {
-        if (!busy) onOpenChange(value);
+        if (!busy) {
+          setCreateKey('');
+          onOpenChange(value);
+        }
       }}
     >
       <DialogContent className="sm:max-w-xl">
@@ -87,7 +91,37 @@ export function SharedProjectDialog({
               Créer une version partagée de cette présentation. Votre original
               reste dans « Mes présentations ».
             </p>
-            <Button disabled={busy} onClick={() => void run(onCreate)}>
+            <label htmlFor="shared-create-key" className="grid gap-2 text-sm">
+              Code de création
+              <Input
+                id="shared-create-key"
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                maxLength={256}
+                value={createKey}
+                onChange={(event) => setCreateKey(event.target.value)}
+                aria-describedby="shared-create-key-help"
+              />
+            </label>
+            <p
+              id="shared-create-key-help"
+              className="text-sm text-muted-foreground"
+            >
+              Fourni par la personne qui héberge Buddy. Ce code est nécessaire
+              pour créer un projet partagé. Un lien d’invitation suffit pour le
+              rejoindre.
+            </p>
+            <Button
+              disabled={busy || !createKey.trim()}
+              onClick={() =>
+                void run(async () => {
+                  const key = createKey.trim();
+                  setCreateKey('');
+                  await onCreate(key);
+                })
+              }
+            >
               <Link2 size={16} />
               {busy ? 'Création…' : 'Créer le projet partagé'}
             </Button>

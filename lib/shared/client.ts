@@ -40,16 +40,23 @@ export function connectionFromUrl(): SharedConnection | null {
     ? { id, token }
     : null;
 }
-async function request(path: string, token: string | null, data: unknown) {
+async function request(
+  path: string,
+  token: string | null,
+  data: unknown,
+  createKey?: string,
+) {
   const response = await fetch(path, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { 'X-Buddy-Key': token } : {}),
+      ...(createKey ? { 'X-Buddy-Create-Key': createKey } : {}),
     },
     body: JSON.stringify(data),
     signal: AbortSignal.timeout(20_000),
     cache: 'no-store',
+    credentials: 'omit',
   });
   const result = (await response.json()) as {
     error?: string;
@@ -67,12 +74,18 @@ async function request(path: string, token: string | null, data: unknown) {
     throw new Error(result.error || 'Connexion au serveur indisponible.');
   return result;
 }
-export async function createShared(deck: Deck): Promise<SharedConnection> {
+export async function createShared(
+  deck: Deck,
+  createKey: string,
+): Promise<SharedConnection> {
   const doc = createDocument(deck);
   try {
-    const result = await request('/api/shared', null, {
-      update: toBase64(Y.encodeStateAsUpdate(doc)),
-    });
+    const result = await request(
+      '/api/shared',
+      null,
+      { update: toBase64(Y.encodeStateAsUpdate(doc)) },
+      createKey,
+    );
     const connection = {
       id: result.id,
       token: result.owner,

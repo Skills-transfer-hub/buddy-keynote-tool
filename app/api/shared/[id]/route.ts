@@ -1,12 +1,21 @@
-import { env } from 'cloudflare:workers';
-import { sharedRequest } from '@/lib/shared/server';
+import { sharedRequest, json } from '@/lib/shared/server';
+import { getSharedBindings } from '@/lib/shared/store';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  return sharedRequest(
-    request,
-    env as unknown as Parameters<typeof sharedRequest>[1],
-    (await context.params).id,
-  );
+  try {
+    return await sharedRequest(
+      request,
+      getSharedBindings(),
+      (await context.params).id,
+    );
+  } catch {
+    return json({ error: 'Le serveur de partage n’est pas configuré.' }, 503);
+  }
 }
