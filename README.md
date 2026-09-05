@@ -51,6 +51,7 @@ Cloudflare, intégration OpenAI ou clé d’IA n’est nécessaire.
    | `BUDDY_DATABASE_URL` | Connexion du rôle dédié, jamais celle de `postgres` |
    | `BUDDY_CREATE_KEY` | Code aléatoire privé : `openssl rand -hex 24` |
    | `BUDDY_APP_ORIGIN` | Origine publique, par exemple `https://your-app.vercel.app` |
+   | `BUDDY_ADDITIONAL_ORIGINS` | Facultatif : origines supplémentaires exactes, séparées par des virgules, pour vos domaines personnalisés |
    | `BUDDY_DATABASE_CA` | Facultatif : certificat racine PEM si nécessaire |
 
 6. Déployez. Ouvrez **Partager**, créez un document avec votre code, puis ouvrez

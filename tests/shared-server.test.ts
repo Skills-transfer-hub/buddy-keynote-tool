@@ -380,6 +380,68 @@ void test('presence cannot be overwritten by a different invitation with the sam
   ]);
 });
 
+void test('custom domains accept only explicit origins and preserve the original address', async () => {
+  const { env, connection } = await setup();
+  env.appOrigin = 'https://buddy.example';
+  env.additionalOrigins = ' https://keynote.example ';
+  const fromOrigin = (origin: string, extra: Record<string, string> = {}) =>
+    new Request(`${origin}/api/shared/${connection.id}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Buddy-Key': connection.viewer,
+        Origin: origin,
+        'Sec-Fetch-Site': 'same-origin',
+        ...extra,
+      },
+      body: JSON.stringify(syncData()),
+    });
+  for (const origin of ['https://buddy.example', 'https://keynote.example'])
+    assert.equal(
+      (await sharedRequest(fromOrigin(origin), env, connection.id)).status,
+      200,
+    );
+  for (const origin of [
+    'https://attacker.example',
+    'https://keynote.example.attacker.example',
+    'http://keynote.example',
+  ])
+    assert.equal(
+      (await sharedRequest(fromOrigin(origin), env, connection.id)).status,
+      403,
+    );
+  assert.equal(
+    (
+      await sharedRequest(
+        fromOrigin('https://keynote.example', {
+          'Sec-Fetch-Site': 'cross-site',
+        }),
+        env,
+        connection.id,
+      )
+    ).status,
+    403,
+  );
+  for (const additionalOrigins of [
+    '*',
+    'https://keynote.example/path',
+    'https://user@keynote.example',
+    'file:///',
+  ]) {
+    env.additionalOrigins = additionalOrigins;
+    assert.equal(
+      (
+        await sharedRequest(
+          fromOrigin('https://buddy.example'),
+          env,
+          connection.id,
+        )
+      ).status,
+      503,
+    );
+  }
+});
+
 void test('strict request validation rejects cross-origin, malformed and oversized payloads', async () => {
   const { env, connection } = await setup();
   assert.equal(

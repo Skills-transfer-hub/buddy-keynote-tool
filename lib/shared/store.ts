@@ -191,6 +191,7 @@ export function getSharedBindings() {
     store,
     createKey: process.env.BUDDY_CREATE_KEY,
     appOrigin: process.env.BUDDY_APP_ORIGIN,
+    additionalOrigins: process.env.BUDDY_ADDITIONAL_ORIGINS,
     trustedProxy: process.env.VERCEL === '1',
   };
 }

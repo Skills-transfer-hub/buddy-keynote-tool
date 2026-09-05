@@ -12,6 +12,7 @@ export type SharedBindings = {
   store?: SharedStore;
   createKey?: string;
   appOrigin?: string;
+  additionalOrigins?: string;
   trustedProxy?: boolean;
 };
 export type SharedRole = 'owner' | 'editor' | 'viewer';
@@ -64,12 +65,37 @@ function checkRequest(request: Request, env: SharedBindings) {
   )
     throw new HttpError(415, 'Le format JSON est requis.');
   const origin = request.headers.get('origin');
-  const allowedOrigin = env.appOrigin
-    ? new URL(env.appOrigin).origin
-    : new URL(request.url).origin;
+  const configuredOrigins = [
+    env.appOrigin,
+    ...(env.additionalOrigins?.split(',') ?? []),
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+  const allowedOrigins = (
+    configuredOrigins.length ? configuredOrigins : [new URL(request.url).origin]
+  ).map((value) => {
+    try {
+      const url = new URL(value);
+      if (
+        !['https:', 'http:'].includes(url.protocol) ||
+        url.username ||
+        url.password ||
+        url.pathname !== '/' ||
+        url.search ||
+        url.hash
+      )
+        throw new Error();
+      return url.origin;
+    } catch {
+      throw new HttpError(
+        503,
+        'Les adresses du serveur de partage sont mal configurées.',
+      );
+    }
+  });
   if (
     request.headers.get('sec-fetch-site') === 'cross-site' ||
-    (origin !== null && origin !== allowedOrigin)
+    (origin !== null && !allowedOrigins.includes(origin))
   )
     throw new HttpError(403, 'Origine de la requête interdite.');
   // CLI clients may omit Origin. Browser callers still need a custom capability
