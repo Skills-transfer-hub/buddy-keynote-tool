@@ -9,11 +9,11 @@
       "id": "slide-8afda3e9-b5d3-486c-a327-4489831f05b6",
       "name": "STH : le skill, du partage à l’usage",
       "tone": "paper",
-      "transition": "cut",
-      "transitionDuration": 500,
+      "transition": "curtain",
+      "transitionDuration": 1000,
       "autoAdvance": null,
       "hidden": false,
-      "notes": "Ouverture : quelqu’un crée un skill utile. Le partager est facile ; le retrouver, le maintenir à jour et le rendre utilisable par chacun l’est moins. C’est le sujet de STH.\nScène illustrée intégrée : lecture unique de 8 secondes, puis arrêt sur le résultat. Laisser le mouvement raconter la situation avant de commenter.",
+      "notes": "Tout commence avec un skill : une façon de faire que quelqu’un a formalisée pour la réutiliser avec son outil IA. Cette personne a trouvé quelque chose d’utile. Maintenant, comment en faire profiter les autres ? C’est le point de départ de Skills Transfer Hub.",
       "elements": [
         {
           "id": "text-c33dbaa9-b883-48fa-8637-d4b85ed83671",
@@ -172,11 +172,11 @@
       "id": "slide-e7ce02c7-bd4a-469e-abf1-8d26449d2756",
       "name": "Problème 1 : le skill se disperse",
       "tone": "paper",
-      "transition": "cut",
-      "transitionDuration": 500,
+      "transition": "push",
+      "transitionDuration": 850,
       "autoAdvance": null,
       "hidden": false,
-      "notes": "Partir des mots de Hugo : une personne crée un skill et le partage dans Slack, Google Chat ou Teams ; au mieux dans GitHub. Buddy à gauche crée, celui à droite cherche. Pas de nouveau cas métier : le skill lui-même est le fil conducteur.\nÉchange Buddy : premier clic = le Buddy de gauche réagit, le trajet vers le skill se révèle, puis le trajet vers son collègue ; le Buddy de droite hésite côté souci et fait un petit saut côté réponse. Les clics suivants dévoilent les explications.\nScène illustrée intégrée : lecture unique de 8 secondes, puis arrêt sur le résultat. Laisser le mouvement raconter la situation avant de commenter.",
+      "notes": "Aujourd’hui, quelqu’un crée un skill et le partage dans Slack, Google Chat ou Teams. Au mieux, il le met dans GitHub. Le lien circule, chacun récupère sa copie… puis il faut retrouver le bon message, le bon dépôt, le bon fichier. Le partage dépend de celui qui sait où chercher.",
       "elements": [
         {
           "id": "text-adf896d0-aaed-40dc-80f9-7b4ed3e0d01f",
@@ -303,11 +303,11 @@
       "id": "slide-13172835-59d2-4545-8ff0-35ea0114c896",
       "name": "Réponse 1 : retrouver les skills dans STH",
       "tone": "paper",
-      "transition": "cut",
-      "transitionDuration": 500,
+      "transition": "pull",
+      "transitionDuration": 850,
       "autoAdvance": null,
       "hidden": false,
-      "notes": "Réponse à la dispersion : centraliser la référence et faciliter la recherche. Le message de chat peut rester une notification, tandis que STH porte le skill que l’équipe retrouve.\nÉchange Buddy : premier clic = le Buddy de gauche réagit, le trajet vers le skill se révèle, puis le trajet vers son collègue ; le Buddy de droite hésite côté souci et fait un petit saut côté réponse. Les clics suivants dévoilent les explications.\nTransport illustré : animation intégrée, lecture unique à l’affichage. Buddy prend physiquement le skill, le porte puis le dépose. Rester sur la slide pour commenter le résultat.",
+      "notes": "Avec STH, on donne aux skills un endroit commun où les retrouver. Le message dans le chat peut annoncer une nouveauté ; la référence reste dans STH. Regardez Buddy : il apporte le skill à un endroit que ses collègues peuvent retrouver. On sait enfin où aller.",
       "elements": [
         {
           "id": "text-fb4927be-fe8e-4fd4-9bd4-a30c58626c11",
@@ -466,11 +466,11 @@
       "id": "slide-fbf24bc9-4253-4da2-ab5f-546aa1b45a4a",
       "name": "Problème 2 : quelle version utilise chacun ?",
       "tone": "paper",
-      "transition": "cut",
-      "transitionDuration": 500,
+      "transition": "turn",
+      "transitionDuration": 850,
       "autoAdvance": null,
       "hidden": false,
-      "notes": "Buddy de gauche a amélioré le skill. Celui de droite utilise encore une copie reçue auparavant. Le problème est le suivi des versions, pas la création du contenu. Les versions v1 et v2 sont illustratives.\nÉchange Buddy : premier clic = le Buddy de gauche réagit, le trajet vers le skill se révèle, puis le trajet vers son collègue ; le Buddy de droite hésite côté souci et fait un petit saut côté réponse. Les clics suivants dévoilent les explications.\nScène illustrée intégrée : lecture unique de 8 secondes, puis arrêt sur le résultat. Laisser le mouvement raconter la situation avant de commenter.",
+      "notes": "Mais retrouver un skill ne suffit pas. Son créateur le corrige, l’améliore, publie une nouvelle version. Pendant ce temps, les autres utilisent encore la copie reçue la semaine dernière. Qui a quelle version ? Et qui sait qu’une correction existe ?",
       "elements": [
         {
           "id": "text-862afb66-7ef1-4d01-930e-74b03c5ac6bb",
@@ -597,11 +597,11 @@
       "id": "slide-9024b463-4148-4e16-a13c-a6884b887ec5",
       "name": "Réponse 2 : suivre les versions des skills",
       "tone": "paper",
-      "transition": "cut",
-      "transitionDuration": 500,
+      "transition": "wipe",
+      "transitionDuration": 850,
       "autoAdvance": null,
       "hidden": false,
-      "notes": "Relier le besoin aux fonctions de statut et de prévisualisation des mises à jour décrites dans les sources précédentes. Ne pas promettre une mise à jour automatique universelle : montrer la version suivie, les changements, puis l’application.\nÉchange Buddy : premier clic = le Buddy de gauche réagit, le trajet vers le skill se révèle, puis le trajet vers son collègue ; le Buddy de droite hésite côté souci et fait un petit saut côté réponse. Les clics suivants dévoilent les explications.\nTransport illustré : animation intégrée, lecture unique à l’affichage. Buddy prend physiquement le skill, le porte puis le dépose. Rester sur la slide pour commenter le résultat.\nScène illustrée intégrée : lecture unique de 8 secondes, puis arrêt sur le résultat. Laisser le mouvement raconter la situation avant de commenter.",
+      "notes": "STH répond à cette question en donnant de la visibilité sur les versions : ce qui est installé, ce qui a changé et ce qu’on peut mettre à jour. Buddy remplace ici l’ancienne version par la nouvelle. L’objectif, c’est une mise à jour comprise et choisie, avec une référence claire.",
       "elements": [
         {
           "id": "text-184c83d0-a9e8-42dc-b175-867dbfc07e48",
@@ -728,11 +728,11 @@
       "id": "slide-692f112c-efed-4d21-80d6-b9af427a9d37",
       "name": "Problème 3 : Codex et Claude",
       "tone": "paper",
-      "transition": "cut",
-      "transitionDuration": 500,
+      "transition": "dissolve",
+      "transitionDuration": 850,
       "autoAdvance": null,
       "hidden": false,
-      "notes": "Mettre en scène deux utilisateurs et deux outils. Ils veulent utiliser le même skill sans reconstruire manuellement son format, son emplacement et sa configuration. Buddy illustre le doute devant la différence d’outil.\nÉchange Buddy : premier clic = le Buddy de gauche réagit, le trajet vers le skill se révèle, puis le trajet vers son collègue ; le Buddy de droite hésite côté souci et fait un petit saut côté réponse. Les clics suivants dévoilent les explications.\nScène illustrée intégrée : lecture unique de 8 secondes, puis arrêt sur le résultat. Laisser le mouvement raconter la situation avant de commenter.",
+      "notes": "Il reste un autre problème : moi, je travaille avec Codex ; mon collègue utilise Claude. On veut partager le même skill, mais les formats, les emplacements ou les réglages peuvent différer. Pourquoi faudrait-il refaire cette adaptation à la main à chaque partage ?",
       "elements": [
         {
           "id": "text-0c809698-12aa-4157-b43c-d50cd27d9541",
@@ -859,11 +859,11 @@
       "id": "slide-84dce591-6e86-4660-bdce-d4d8c74b8b0e",
       "name": "Réponse 3 : adapter le skill à l’outil",
       "tone": "paper",
-      "transition": "cut",
-      "transitionDuration": 500,
+      "transition": "zip",
+      "transitionDuration": 850,
       "autoAdvance": null,
       "hidden": false,
-      "notes": "STH vise à simplifier l’adaptation et l’installation du skill selon la cible. Les conversions sont explicites et leur fidélité dépend du format et de l’outil ; ne pas promettre une compatibilité universelle. Pour la démo, choisir un skill et deux cibles réellement validés.\nÉchange Buddy : premier clic = le Buddy de gauche réagit, le trajet vers le skill se révèle, puis le trajet vers son collègue ; le Buddy de droite hésite côté souci et fait un petit saut côté réponse. Les clics suivants dévoilent les explications.\nTransport illustré : animation intégrée, lecture unique à l’affichage. Buddy prend physiquement le skill, le porte puis le dépose. Rester sur la slide pour commenter le résultat.\nScène illustrée intégrée : lecture unique de 8 secondes, puis arrêt sur le résultat. Laisser le mouvement raconter la situation avant de commenter.",
+      "notes": "Le principe de STH, c’est de garder un skill de référence et d’adapter son installation à l’outil cible, parmi les outils pris en charge. Buddy traverse STH avec le skill et le remet sous une forme adaptée. On partage le même savoir-faire, même quand on travaille avec des outils différents.",
       "elements": [
         {
           "id": "text-8f13dfcf-ff7f-4866-8bfb-b25dfd8ab9c4",
@@ -990,11 +990,11 @@
       "id": "slide-94eae503-b674-4e11-a02c-bc355459b231",
       "name": "Problème 4 : opérations et commerce",
       "tone": "paper",
-      "transition": "cut",
-      "transitionDuration": 500,
+      "transition": "drop",
+      "transitionDuration": 850,
       "autoAdvance": null,
       "hidden": false,
-      "notes": "Élargir le besoin : les opérations et le commerce veulent accéder aux skills utiles sans devoir maîtriser un dépôt de code ni les conventions d’installation. Ne pas limiter STH aux développeurs.\nÉchange Buddy : premier clic = le Buddy de gauche réagit, le trajet vers le skill se révèle, puis le trajet vers son collègue ; le Buddy de droite hésite côté souci et fait un petit saut côté réponse. Les clics suivants dévoilent les explications.\nScène illustrée intégrée : lecture unique de 8 secondes, puis arrêt sur le résultat. Laisser le mouvement raconter la situation avant de commenter.",
+      "notes": "Et tout cela concerne aussi les opérations et le commerce. Ces équipes ont leurs méthodes, leurs tâches récurrentes et leurs propres skills utiles. Si l’accès passe obligatoirement par un dépôt GitHub et une configuration technique, on laisse une partie de l’entreprise de côté.",
       "elements": [
         {
           "id": "text-d9314aca-6843-4fab-b8fc-805008ce550e",
@@ -1121,11 +1121,11 @@
       "id": "slide-b4a9c4d9-7793-4b84-97bd-6b1e11dad32c",
       "name": "Réponse 4 : des skills accessibles aux équipes",
       "tone": "paper",
-      "transition": "cut",
-      "transitionDuration": 500,
+      "transition": "lift",
+      "transitionDuration": 850,
       "autoAdvance": null,
       "hidden": false,
-      "notes": "Le MCP est un moyen d’accès aux skills depuis les outils compatibles. Il sert la distribution des skills, sans devenir le sujet principal. Distinguer cet accès de la configuration inter-équipe et des plugins, détaillés ensuite comme axes de roadmap.\nÉchange Buddy : premier clic = le Buddy de gauche réagit, le trajet vers le skill se révèle, puis le trajet vers son collègue ; le Buddy de droite hésite côté souci et fait un petit saut côté réponse. Les clics suivants dévoilent les explications.\nTransport illustré : animation intégrée, lecture unique à l’affichage. Buddy prend physiquement le skill, le porte puis le dépose. Rester sur la slide pour commenter le résultat.\nScène illustrée intégrée : lecture unique de 8 secondes, puis arrêt sur le résultat. Laisser le mouvement raconter la situation avant de commenter.",
+      "notes": "L’objectif est que chaque équipe retrouve les skills utiles depuis ses outils compatibles, avec les droits appropriés. Le partage via MCP ouvre ce chemin : rendre les skills accessibles là où les équipes travaillent déjà. Les opérations et le commerce doivent pouvoir en profiter aussi.",
       "elements": [
         {
           "id": "text-b3593ab7-b389-4a23-8c76-fd22fb4f42f9",
@@ -1252,11 +1252,11 @@
       "id": "slide-31cc86e8-b528-409c-a5f9-9a18c5266f96",
       "name": "Roadmap : faciliter la distribution des skills",
       "tone": "paper",
-      "transition": "cut",
-      "transitionDuration": 500,
+      "transition": "roll",
+      "transitionDuration": 850,
       "autoAdvance": null,
       "hidden": false,
-      "notes": "Trois axes confirmés par Hugo : plugins, partage via MCP et configuration inter-équipe. Les plugins regroupent les skills par usage ; le partage MCP élargit leur accès ; la configuration adapte le socle aux besoins et droits de chaque équipe. Aucun calendrier ni statut de livraison inventé.\nScène illustrée intégrée : lecture unique de 8 secondes, puis arrêt sur le résultat. Laisser le mouvement raconter la situation avant de commenter.",
+      "notes": "La suite s’organise autour de trois axes : des plugins pour regrouper les skills par usage ; le partage via MCP pour élargir leur accès ; et une configuration par équipe pour définir les skills et les réglages utiles. On passe d’un skill partagé ponctuellement à une distribution organisée entre les équipes.",
       "elements": [
         {
           "id": "text-9d76949c-8899-4200-b3cb-29d4e16c49fc",
@@ -1415,11 +1415,11 @@
       "id": "slide-9e0a5993-bb7c-4d63-a186-5e455d0d4969",
       "name": "Démo : un skill, de bout en bout",
       "tone": "paper",
-      "transition": "cut",
-      "transitionDuration": 500,
+      "transition": "zoom",
+      "transitionDuration": 850,
       "autoAdvance": null,
       "hidden": false,
-      "notes": "Démo à préparer et répéter : un skill connu, une version précédente et une mise à jour, une cible Codex et une cible Claude prises en charge. Montrer ensuite l’accès via MCP dans un outil retenu pour un usage métier. Ne pas présenter ce parcours comme vérifié avant de l’avoir exécuté.\nScène illustrée intégrée : lecture unique de 8 secondes, puis arrêt sur le résultat. Laisser le mouvement raconter la situation avant de commenter.",
+      "notes": "Pour la démonstration, on va suivre un seul skill de bout en bout : le retrouver, vérifier sa version et ses changements, puis regarder son adaptation à l’outil cible. C’est ce fil qui compte : un skill créé par quelqu’un doit pouvoir être retrouvé, maintenu et utilisé par les autres.",
       "elements": [
         {
           "id": "text-365bd86b-f803-42f0-9d98-4d33f17c0098",
@@ -1543,5 +1543,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-09-16T09:28:23.922Z"
+  "updatedAt": "2026-09-20T11:10:40.792Z"
 }
