@@ -75,3 +75,8 @@ Passons à la démo en direct. Nous allons modifier un skill dans notre biblioth
 Transition : Buddy dissout.
 
 Aujourd’hui, nous cherchons des CTO, des team leads et des CEO prêts à tester STH avec nous en alpha. Nous voulons partir de vos usages réels : partager vos skills, les faire évoluer et les rendre utiles à vos équipes. Vos retours nous aideront à choisir les priorités et à construire le projet avec vous. Si vous avez envie de participer, venez nous parler à la fin de la présentation : choisissons ensemble un premier cas à tester.
+
+
+## Slide 14 — Merci, des questions ?
+
+Merci ! Nous sommes prêts à répondre à vos questions. Retrouvez Skills Transfer Hub sur notre site et sur LinkedIn. Hugo et Jérémie sont disponibles pour échanger et choisir avec vous un premier cas à tester.
