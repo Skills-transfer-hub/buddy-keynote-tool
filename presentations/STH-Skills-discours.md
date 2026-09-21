@@ -66,7 +66,11 @@ Transition : Buddy agrandit.
 
 Pour la démonstration, on va suivre un seul skill de bout en bout : le retrouver, vérifier sa version et ses changements, puis regarder son adaptation à l’outil cible. C’est ce fil qui compte : un skill créé par quelqu’un doit pouvoir être retrouvé, maintenu et utilisé par les autres.
 
-## 12. Construisons STH ensemble, en alpha
+## 12. Démo time
+
+Passons à la démo en direct. Nous allons modifier un skill dans notre bibliothèque partagée, pousser le changement sur Git, puis le récupérer dans le projet du collègue avec sth update. Montrer le fichier effectivement installé avant de rejouer le même usage. Rester sur cette slide pendant la démonstration, puis passer à notre invitation à rejoindre l’alpha.
+
+## 13. Construisons STH ensemble, en alpha
 
 Transition : Buddy dissout.
 
