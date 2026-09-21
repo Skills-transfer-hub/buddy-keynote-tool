@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { StudioSlide } from '@/components/studio-slide';
 import type { Deck } from '@/lib/studio';
 import { animationFrame, groupDuration } from '@/lib/playback';
-import { choreography, keepsEmphasis, motionMode, transitionFrame, elementFrame, applyElementFrame, drawMotion, readGlyphs, needsGlyphLayout } from '@/lib/buddy-motion.js';
+import { choreography, keepsEmphasis, transitionFrame, elementFrame, applyElementFrame, drawMotion, readGlyphs, needsGlyphLayout } from '@/lib/buddy-motion.js';
 
 export type PlaybackState = {
   index: number;
@@ -46,7 +46,6 @@ export function StudioPlayer({ deck, state, onNext, onPrevious, onClose, onBusy,
   const busy = time < totalTime;
   const direction = state.previousIndex !== null && state.previousIndex > state.index ? -1 : 1;
   const transition = transitionFrame(slide.transition, transitionTime ? time / transitionTime : 1, deck.aspectRatio, direction, !!oldSlide);
-  const action = transitioning ? transition.actor.action : active ? motionMode(active.element)==='emphasis'?'met le contenu en évidence':motionMode(active.element)==='exit'?'retire le contenu':'fait apparaître le contenu' : 'vous laisse la parole';
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -155,7 +154,6 @@ export function StudioPlayer({ deck, state, onNext, onPrevious, onClose, onBusy,
             >
               <ArrowLeft />
             </Button>
-            <span>Buddy {action}.</span>
             <Button
               variant="secondary"
               size="icon"

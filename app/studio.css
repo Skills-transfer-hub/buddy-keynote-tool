@@ -1049,11 +1049,6 @@
   transition: opacity 0.2s;
   z-index: 20000;
 }
-.player-controls span {
-  min-width: 150px;
-  text-align: center;
-  font-size: 13px;
-}
 .player-shortcuts {
   position: absolute;
   bottom: 8px;
