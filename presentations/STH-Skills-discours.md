@@ -79,7 +79,7 @@ Aujourd’hui, nous cherchons des CTO, des team leads et des CEO prêts à teste
 
 ## Slide 14 — Merci, des questions ?
 
-Merci ! Nous sommes prêts à répondre à vos questions. Retrouvez Skills Transfer Hub sur notre site et sur LinkedIn. Hugo et Jérémie sont disponibles pour échanger et choisir avec vous un premier cas à tester.
+Merci ! Nous sommes prêts à répondre à vos questions. Retrouvez Skills Transfer Hub sur notre site et sur LinkedIn. Hugo et Jérémy sont disponibles pour échanger et choisir avec vous un premier cas à tester.
 
 Liens :
 - https://www.skillsth.com/
