@@ -65,3 +65,9 @@ La suite s’organise autour de trois axes : des plugins pour regrouper les skil
 Transition : Buddy agrandit.
 
 Pour la démonstration, on va suivre un seul skill de bout en bout : le retrouver, vérifier sa version et ses changements, puis regarder son adaptation à l’outil cible. C’est ce fil qui compte : un skill créé par quelqu’un doit pouvoir être retrouvé, maintenu et utilisé par les autres.
+
+## 12. Construisons STH ensemble, en alpha
+
+Transition : Buddy dissout.
+
+Aujourd’hui, nous cherchons des CTO, des team leads et des CEO prêts à tester STH avec nous en alpha. Nous voulons partir de vos usages réels : partager vos skills, les faire évoluer et les rendre utiles à vos équipes. Vos retours nous aideront à choisir les priorités et à construire le projet avec vous. Si vous avez envie de participer, venez nous parler à la fin de la présentation : choisissons ensemble un premier cas à tester.
