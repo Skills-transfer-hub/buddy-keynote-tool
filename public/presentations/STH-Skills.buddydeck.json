@@ -1936,8 +1936,8 @@
       "id": "slide-sth-thanks",
       "name": "Merci — Des questions ?",
       "tone": "paper",
-      "transition": "dissolve",
-      "transitionDuration": 1000,
+      "transition": "lift",
+      "transitionDuration": 1100,
       "autoAdvance": null,
       "hidden": false,
       "notes": "Merci ! Nous sommes prêts à répondre à vos questions. Retrouvez Skills Transfer Hub sur notre site et sur LinkedIn, et venez échanger avec Hugo et Jérémy pour tester STH avec vos équipes.\nLiens : https://www.skillsth.com/ — https://www.linkedin.com/company/skills-transfer-hub/posts/ — https://www.linkedin.com/in/jeremyguilpin/ — https://www.linkedin.com/in/hugomonfougarauzet/",
@@ -2320,5 +2320,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-09-21T20:07:57.738Z"
+  "updatedAt": "2026-09-21T20:13:07.340Z"
 }
