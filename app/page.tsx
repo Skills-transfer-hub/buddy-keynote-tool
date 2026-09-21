@@ -1173,7 +1173,7 @@ export default function Home() {
         if (event.key.toLowerCase() === 'f') {
           if (document.fullscreenElement) void document.exitFullscreen();
           else
-            void document.documentElement
+            void (document.querySelector('.studio-player') ?? document.documentElement)
               .requestFullscreen()
               .catch(() => undefined);
         }
@@ -1279,9 +1279,6 @@ export default function Home() {
       <StudioPlayer
         deck={deck}
         state={playback}
-        onNext={() => channel.current?.postMessage({ type: 'next' })}
-        onPrevious={() => channel.current?.postMessage({ type: 'previous' })}
-        onClose={() => channel.current?.postMessage({ type: 'close' })}
         onBusy={onBusy}
       />
     ) : (
@@ -2220,9 +2217,6 @@ export default function Home() {
         <StudioPlayer
           deck={deck}
           state={playback}
-          onNext={next}
-          onPrevious={previous}
-          onClose={close}
           onBusy={onBusy}
         />
       )}

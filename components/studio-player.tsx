@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Expand, X, MousePointer2, Pause } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { StudioSlide } from '@/components/studio-slide';
 import type { Deck } from '@/lib/studio';
 import { animationFrame, groupDuration } from '@/lib/playback';
@@ -18,14 +16,10 @@ export type PlaybackState = {
   laser: boolean;
 };
 
-export function StudioPlayer({ deck, state, onNext, onPrevious, onClose, onBusy, controls = true }: {
+export function StudioPlayer({ deck, state, onBusy }: {
   deck: Deck;
   state: PlaybackState;
-  onNext: () => void;
-  onPrevious: () => void;
-  onClose: () => void;
   onBusy: (busy: boolean) => void;
-  controls?: boolean;
 }) {
   const [clock, setClock] = useState({ run: state.run, elapsed: 0 });
   const elapsed = clock.run === state.run ? clock.elapsed : 0;
@@ -43,7 +37,6 @@ export function StudioPlayer({ deck, state, onNext, onPrevious, onClose, onBusy,
   const time = state.skip ? totalTime : elapsed;
   const { progress: rawProgress, active, activeCues } = animationFrame(slide, state.step, Math.max(-1, time - transitionTime));
   const transitioning = time < transitionTime;
-  const busy = time < totalTime;
   const direction = state.previousIndex !== null && state.previousIndex > state.index ? -1 : 1;
   const transition = transitionFrame(slide.transition, transitionTime ? time / transitionTime : 1, deck.aspectRatio, direction, !!oldSlide);
 
@@ -113,62 +106,6 @@ export function StudioPlayer({ deck, state, onNext, onPrevious, onClose, onBusy,
         <canvas ref={canvas} className="buddy-motion-layer" aria-hidden="true" data-motion-phase={transitioning ? transition.phase : active ? choreography(rawProgress[active.element.id]).phase : 'idle'} />
         {state.laser && <div className="laser-pointer" style={{ left:`${pointer.x}%`, top:`${pointer.y}%` }} />}
       </div>
-      {controls && (
-        <>
-          <div className="player-top">
-            <span>
-              {state.index + 1} / {deck.slides.length}
-            </span>
-            <div>
-              <Button
-                variant="secondary"
-                size="icon"
-                aria-label="Plein écran"
-                onClick={() => {
-                  if (document.fullscreenElement)
-                    void document.exitFullscreen();
-                  else
-                    void document.documentElement
-                      .requestFullscreen()
-                      .catch(() => undefined);
-                }}
-              >
-                <Expand />
-              </Button>
-              <Button
-                variant="secondary"
-                size="icon"
-                aria-label="Quitter"
-                onClick={onClose}
-              >
-                <X />
-              </Button>
-            </div>
-          </div>
-          <nav className="player-controls" aria-label="Navigation">
-            <Button
-              variant="secondary"
-              size="icon"
-              aria-label="Précédent"
-              onClick={onPrevious}
-            >
-              <ArrowLeft />
-            </Button>
-            <Button
-              variant="secondary"
-              size="icon"
-              aria-label={busy ? 'Terminer le mouvement' : 'Suivant'}
-              onClick={onNext}
-            >
-              {busy ? <Pause /> : <ArrowRight />}
-            </Button>
-          </nav>
-          <p className="player-shortcuts">
-            <MousePointer2 size={14} /> Flèches · B écran noir · L pointeur ·
-            Échap quitter
-          </p>
-        </>
-      )}
       {state.blackout && (
         <div className="player-blackout" aria-label="Écran noir" />
       )}

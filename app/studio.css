@@ -962,6 +962,7 @@
 }
 
 .studio-player {
+  cursor: none;
   position: fixed;
   inset: 0;
   display: flex;
@@ -1012,60 +1013,6 @@
   z-index: 15000;
   pointer-events: none;
   transform: translate(-50%, -50%);
-}
-.player-top {
-  position: absolute;
-  inset: 16px 20px auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  opacity: 0;
-  transition: opacity 0.2s;
-  z-index: 20000;
-}
-.player-top > span {
-  font: 13px var(--font-mono);
-  padding: 7px 12px;
-  background: #111b;
-  border-radius: 5px;
-}
-.player-top > div {
-  display: flex;
-  gap: 6px;
-}
-.player-controls {
-  position: absolute;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 18px;
-  align-items: center;
-  background: #161616;
-  border: 1px solid #555;
-  border-radius: 10px;
-  padding: 7px;
-  opacity: 0;
-  transition: opacity 0.2s;
-  z-index: 20000;
-}
-.player-shortcuts {
-  position: absolute;
-  bottom: 8px;
-  right: 20px;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  font-size: 11px;
-  color: #aaa;
-  opacity: 0;
-}
-.studio-player:hover .player-top,
-.studio-player:hover .player-controls,
-.studio-player:hover .player-shortcuts,
-.studio-player:focus-within .player-top,
-.studio-player:focus-within .player-controls {
-  opacity: 1;
 }
 .player-blackout {
   position: absolute;
@@ -1194,12 +1141,6 @@
   }
   .studio-status {
     font-size: 11px;
-  }
-}
-@media (hover: none) {
-  .player-top,
-  .player-controls {
-    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
